@@ -79,7 +79,7 @@ class MusicPlayerUI(QWidget):
 
     def update_rotation(self):
         if self.is_playing:
-            self.rotation_angle = (self.rotation_angle + 2) % 360
+            self.rotation_angle = (self.rotation_angle + 0.8) % 360
             self.update()
 
     def paintEvent(self, event):
