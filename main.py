@@ -1,6 +1,6 @@
 from PyQt6.QtCore import Qt, QTimer, QRectF, QPointF
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush
-from PyQt6.QtWidgets import QApplication, QWidget
+from PyQt6.QtWidgets import QApplication, QWidget, QMenu
 import sys
 import math
 from player import Music_player
@@ -39,16 +39,17 @@ class MusicPlayerUI(QWidget):
             "theme": QRectF(350, 20, 110, 40)
         }
         self.bottom_buttons = {
-            "prev": QRectF(20, 580, 40, 40),
-            "play": QRectF(80, 580, 60, 40),
+            "prev": QRectF(40, 580, 40, 40),
+            "play": QRectF(90, 580, 60, 40),
             "next": QRectF(160, 580, 40, 40),
             "shuffle": QRectF(220, 580, 40, 40),
-            "repeat": QRectF(280, 580, 40, 40),
-            "add_fav": QRectF(380, 580, 40, 40),
-            "add_playlist": QRectF(430, 580, 40, 40),
-            "volume_down": QRectF(480, 580, 40, 40),
-            "volume_up": QRectF(480, 530, 40, 40)
+            "repeat": QRectF(270, 580, 40, 40),
+            "volume_down": QRectF(340, 580, 40, 40),
+            "volume_up": QRectF(390, 580, 40, 40),
+            "add_fav": QRectF(440, 580, 40, 40),
+            "add_playlist": QRectF(490, 580, 40, 40),
         }
+
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_rotation)
@@ -139,6 +140,32 @@ class MusicPlayerUI(QWidget):
             painter.drawText(r.adjusted(10,0,0,0), Qt.AlignmentFlag.AlignVCenter, items[i])
         painter.restore()
 
+    def show_context_menu(self, global_pos):
+        menu = QMenu()
+
+        play_action = menu.addAction("▶️ Play")
+        play_next_action = menu.addAction("⏭️ Play Next")
+        add_fav_action = menu.addAction("❤️ Add to Favorites")
+        add_playlist_action = menu.addAction("➕ Add to Playlist")
+
+        action = menu.exec(global_pos)
+        
+        if action == play_action:
+            self.backend.audio_controls.queue = self.songs_path
+            self.backend.audio_controls.song_pointer = self.selected_index
+            self.backend.start()
+            self.backend.audio_controls.is_paused = False
+            self.is_playing = True
+        elif action == play_next_action:
+            self.backend.audio_controls.queue.insert(self.backend.audio_controls.song_pointer + 1, self.songs_path[self.selected_index])
+            print(f"'{self.get_current_list()[self.selected_index]}' will play next.")
+        elif action == add_fav_action:
+            print(f"Added to favorites: {self.get_current_list()[self.selected_index]}")
+        elif action == add_playlist_action:
+            print(f"Added to playlist: {self.get_current_list()[self.selected_index]}")
+
+        self.update()
+
     def wheelEvent(self, event):
         delta = event.angleDelta().y()
         amt = -1 if delta>0 else 1
@@ -154,26 +181,37 @@ class MusicPlayerUI(QWidget):
 
     def mousePressEvent(self, event):
         pos = event.position()
-        for name, rect in self.top_buttons.items():
-            if rect.contains(pos):
-                self.handle_top_button(name)
-                return
-        for name, rect in self.bottom_buttons.items():
-            if rect.contains(pos):
-                self.handle_bottom_button(name)
-                return
-        lr = QRectF(30,310,self.width()-60,310)
-        if lr.contains(pos):
-            idx = int((pos.y()-310)//30) + self.scroll_offset
-            lst = self.get_current_list()
-            if 0<=idx<len(lst):
-                self.selected_index = idx
-                self.backend.audio_controls.queue = self.songs_path
-                self.backend.audio_controls.song_pointer = idx
-                self.backend.start()
-                self.backend.audio_controls.is_paused = False
-                self.is_playing = True
-                self.update()
+        if event.button() == Qt.MouseButton.LeftButton:
+            for name, rect in self.top_buttons.items():
+                if rect.contains(pos):
+                    self.handle_top_button(name)
+                    return
+            for name, rect in self.bottom_buttons.items():
+                if rect.contains(pos):
+                    self.handle_bottom_button(name)
+                    return
+            lr = QRectF(30, 310, self.width() - 60, 310)
+            if lr.contains(pos):
+                idx = int((pos.y() - 310) // 30) + self.scroll_offset
+                lst = self.get_current_list()
+                if 0 <= idx < len(lst):
+                    self.selected_index = idx
+                    self.backend.audio_controls.queue = self.songs_path
+                    self.backend.audio_controls.song_pointer = idx
+                    self.backend.start()
+                    self.backend.audio_controls.is_paused = False
+                    self.is_playing = True
+                    self.update()
+
+        elif event.button() == Qt.MouseButton.RightButton:
+            lr = QRectF(30, 310, self.width() - 60, 310)
+            if lr.contains(pos):
+                idx = int((pos.y() - 310) // 30) + self.scroll_offset
+                lst = self.get_current_list()
+                if 0 <= idx < len(lst):
+                    self.selected_index = idx
+                    self.show_context_menu(event.globalPosition().toPoint())
+
 
     def mouseMoveEvent(self, event):
         pos = event.position()
