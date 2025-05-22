@@ -237,6 +237,7 @@ class MusicPlayerUI(QWidget):
                 if 0 <= idx < len(lst):
                     self.selected_index = idx
                     self.show_context_menu(event.globalPosition().toPoint())
+        self.update_queue_display()
 
     def update_queue_display(self):
         if self.queue_visible:
@@ -246,7 +247,7 @@ class MusicPlayerUI(QWidget):
             formatted = ""
             for i, song in enumerate(queue):
                 marker = "👉 " if i == current_index else "   "
-                formatted += f"{marker}{os.path.basename(song)}\n"
+                formatted += f"{marker}{os.path.basename(song)}\n--------------------\n"
             self.queue_display.setText(formatted)
         else:
             self.queue_display.hide()
@@ -324,6 +325,7 @@ class MusicPlayerUI(QWidget):
             self.scroll_offset = self.selected_index
         elif self.selected_index >= self.scroll_offset + vis:
             self.scroll_offset = self.selected_index - vis + 1
+        self.update_queue_display()
         self.update()
 
 if __name__ == "__main__":

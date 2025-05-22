@@ -79,12 +79,10 @@ class Music_player:
                     pygame.mixer.music.play()
                     print(f"Now playing: {song}")
 
-                # Stop and clean up previous thread if it's running
                 if self.thread and self.thread.is_alive():
                     self.stop_event.set()
                     self.thread.join()
 
-                # Prepare to start a new listener thread
                 self.stop_event.clear()
                 self.thread = threading.Thread(target=self.listen_to_end, daemon=True)
                 self.thread.start()
@@ -114,14 +112,14 @@ class Music_player:
 
     def toggle_repeat(self):
         self.audio_controls.repeat = (self.audio_controls.repeat % 3) + 1
-        if self.audio_controls.repeat == 1:  # Repeat All
+        if self.audio_controls.repeat == 1:
             self.audio_controls.queue = self.audio_controls.file_manager_.search()
             self.audio_controls.song_pointer = 0
-        elif self.audio_controls.repeat == 2:  # Repeat One
+        elif self.audio_controls.repeat == 2:
             current_song = self.audio_controls.queue[self.audio_controls.song_pointer]
             self.audio_controls.queue = [current_song]
             self.audio_controls.song_pointer = 0
-        elif self.audio_controls.repeat == 3:  # Shuffle All
+        elif self.audio_controls.repeat == 3:
             self.audio_controls.queue = self.audio_controls.file_manager_.search()
             random.shuffle(self.audio_controls.queue)
             self.audio_controls.song_pointer = 0
@@ -137,7 +135,7 @@ class Music_player:
                     print("Song finished!")
                     self.audio_controls.song_pointer += 1
                     self.start()
-                    return  # Exit thread after calling start()
+                    return
             time.sleep(0.1)
 
         
