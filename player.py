@@ -27,7 +27,7 @@ class Music_player:
         self.thread = None
         pygame.mixer.music.set_volume(self.current_volume)
 
-    def add2queue(self, song, pointer):
+    def playnext(self, song, pointer):
         queue = self.audio_controls.queue
         if pointer < 0 or pointer >= len(queue):
             print("Pointer out of range.")

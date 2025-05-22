@@ -157,8 +157,9 @@ class MusicPlayerUI(QWidget):
             self.backend.audio_controls.is_paused = False
             self.is_playing = True
         elif action == play_next_action:
-            self.backend.audio_controls.queue.insert(self.backend.audio_controls.song_pointer + 1, self.songs_path[self.selected_index])
-            print(f"'{self.get_current_list()[self.selected_index]}' will play next.")
+            self.backend.playnext(self.songs_path[self.selected_index], self.selected_index)
+            print(f"next song is {self.songs_path[self.selected_index]}")
+            print(self.songs_path)
         elif action == add_fav_action:
             print(f"Added to favorites: {self.get_current_list()[self.selected_index]}")
         elif action == add_playlist_action:
