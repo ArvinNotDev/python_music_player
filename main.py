@@ -42,13 +42,13 @@ class MusicPlayerUI(QWidget):
             "prev": QRectF(40, 580, 40, 40),
             "play": QRectF(90, 580, 60, 40),
             "next": QRectF(160, 580, 40, 40),
-            "shuffle": QRectF(220, 580, 40, 40),
-            "repeat": QRectF(270, 580, 40, 40),
-            "volume_down": QRectF(340, 580, 40, 40),
-            "volume_up": QRectF(390, 580, 40, 40),
-            "add_fav": QRectF(440, 580, 40, 40),
-            "add_playlist": QRectF(490, 580, 40, 40),
+            "repeat": QRectF(220, 580, 40, 40),  # Moved to shuffle's old place
+            "volume_down": QRectF(270, 580, 40, 40),
+            "volume_up": QRectF(320, 580, 40, 40),
+            "add_fav": QRectF(370, 580, 40, 40),
+            "add_playlist": QRectF(420, 580, 40, 40),
         }
+
 
 
         self.timer = QTimer()
@@ -84,10 +84,16 @@ class MusicPlayerUI(QWidget):
 
         for name, rect in self.bottom_buttons.items():
             icon = {
-                "prev": "⏮", "play": ("⏸" if self.is_playing else "▶️"), "next": "⏭",
-                "shuffle": "🔀", "repeat": "🔁", "add_fav": "❤️", "add_playlist": "➕",
-                "volume_down": "🔉", "volume_up": "🔊"
+                "prev": "⏮",
+                "play": ("⏸" if self.is_playing else "▶️"),
+                "next": "⏭",
+                "repeat": {1: "🔁", 2: "🔂", 3: "🔀"}[self.backend.audio_controls.repeat],
+                "add_fav": "❤️",
+                "add_playlist": "➕",
+                "volume_down": "🔉",
+                "volume_up": "🔊"
             }[name]
+
             self.draw_button(painter, rect, icon, hovered=(self.hovered_button == name))
 
     def draw_button(self, painter, rect, text, hovered=False):
@@ -246,9 +252,10 @@ class MusicPlayerUI(QWidget):
             self.backend.prev_song(); self.selected_index=self.backend.audio_controls.song_pointer; self.is_playing=True
         elif name=="next":
             self.backend.next_song(); self.selected_index=self.backend.audio_controls.song_pointer; self.is_playing=True
-        elif name=="shuffle" or name=="repeat":
+        elif name == "repeat":
             self.backend.toggle_repeat()
-            self.songs_path=self.backend.audio_controls.queue
+            self.songs_path = self.backend.audio_controls.queue
+            self.selected_index = self.backend.audio_controls.song_pointer
         elif name=="add_fav": print(f"Added to favorites: {self.get_current_list()[self.selected_index]}")
         elif name=="add_playlist": print(f"Added to playlist: {self.get_current_list()[self.selected_index]}")
         elif name=="volume_up": self.backend.volume_up()
