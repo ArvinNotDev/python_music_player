@@ -23,6 +23,7 @@ class Music_player:
         self.current_volume = 0.5
         self.is_next_or_prev = False
         self.SONG_END = pygame.USEREVENT + 1
+        self.stop_event = threading.Event()
         self.thread = None
         pygame.mixer.music.set_volume(self.current_volume)
 
@@ -77,15 +78,22 @@ class Music_player:
                     pygame.mixer.music.set_endevent(self.SONG_END)
                     pygame.mixer.music.play()
                     print(f"Now playing: {song}")
-                if self.thread is not None:
+
+                # Stop and clean up previous thread if it's running
+                if self.thread and self.thread.is_alive():
+                    self.stop_event.set()
                     self.thread.join()
+
+                # Prepare to start a new listener thread
+                self.stop_event.clear()
                 self.thread = threading.Thread(target=self.listen_to_end, daemon=True)
                 self.thread.start()
-                    
+
             except pygame.error as e:
                 print(f"Error playing {song}: {e}")
         else:
             print("No song to play at current pointer.")
+
 
 
     def next_song(self):
@@ -122,16 +130,16 @@ class Music_player:
         if self.is_next_or_prev:
             self.is_next_or_prev = False
             return
-        running = True
-        while running:
+        while not self.stop_event.is_set():
             for event in pygame.event.get():
                 if event.type == self.SONG_END:
                     print("Song finished!")
                     self.audio_controls.song_pointer += 1
                     self.start()
-                    running = False
+                    return  # Exit thread after calling start()
             time.sleep(0.1)
-    
+
+        
 
 A = file_manager()
 music_list = A.search()
