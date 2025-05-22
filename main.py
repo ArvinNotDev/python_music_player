@@ -147,6 +147,7 @@ class MusicPlayerUI(QWidget):
         play_next_action = menu.addAction("⏭️ Play Next")
         add_fav_action = menu.addAction("❤️ Add to Favorites")
         add_playlist_action = menu.addAction("➕ Add to Playlist")
+        remove_from_queue = menu.addAction("❌ Remove from Queue")
 
         action = menu.exec(global_pos)
         
@@ -164,6 +165,9 @@ class MusicPlayerUI(QWidget):
             print(f"Added to favorites: {self.get_current_list()[self.selected_index]}")
         elif action == add_playlist_action:
             print(f"Added to playlist: {self.get_current_list()[self.selected_index]}")
+        elif action == remove_from_queue:
+            self.backend.remove_from_queue(self.songs_path[self.selected_index])
+            print(f"{self.songs_path[self.selected_index]} removed from queue!")
 
         self.update()
 
