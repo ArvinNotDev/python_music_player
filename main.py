@@ -10,7 +10,7 @@ from files import file_manager
 class MusicPlayerUI(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Custom Drawn Music Player UI")
+        self.setWindowTitle("Music Player UI")
         self.resize(800, 700)
         self.file_manager_ = file_manager()
         self.backend = Music_player()
@@ -246,7 +246,7 @@ class MusicPlayerUI(QWidget):
             queue = self.backend.audio_controls.queue
             formatted = ""
             for i, song in enumerate(queue):
-                marker = "👉 " if i == current_index else "   "
+                marker = "🎵 " if i == current_index else "   "
                 formatted += f"{marker}{os.path.basename(song)}\n--------------------\n"
             self.queue_display.setText(formatted)
         else:
@@ -311,7 +311,7 @@ class MusicPlayerUI(QWidget):
         self.update()
 
     def toggle_theme(self):
-        self.theme_name = "bright" if self.theme_name == "dark" else "dark"
+        self.theme_name = "light" if self.theme_name == "dark" else "dark"
         self.theme = self.themes[self.theme_name]
 
     def keyPressEvent(self, event):
