@@ -112,17 +112,19 @@ class Music_player:
 
     def toggle_repeat(self):
         self.audio_controls.repeat = (self.audio_controls.repeat % 3) + 1
-        if self.audio_controls.repeat == 1:
+        if self.audio_controls.repeat == 1: # repeat all
             self.audio_controls.queue = self.audio_controls.file_manager_.search()
             self.audio_controls.song_pointer = 0
-        elif self.audio_controls.repeat == 2:
+        elif self.audio_controls.repeat == 2: # repeat one
             current_song = self.audio_controls.queue[self.audio_controls.song_pointer]
             self.audio_controls.queue = [current_song]
             self.audio_controls.song_pointer = 0
-        elif self.audio_controls.repeat == 3:
+        elif self.audio_controls.repeat == 3: # shuffle
             self.audio_controls.queue = self.audio_controls.file_manager_.search()
             random.shuffle(self.audio_controls.queue)
             self.audio_controls.song_pointer = 0
+            self.start()
+
 
             
     def listen_to_end(self):
