@@ -189,7 +189,6 @@ class MusicPlayerUI(QWidget):
         elif action == remove_from_queue:
             self.backend.remove_from_queue(self.songs_path[self.selected_index])
 
-        self.update_queue_display()
         self.update()
 
     def wheelEvent(self, event):
@@ -307,7 +306,6 @@ class MusicPlayerUI(QWidget):
         elif name == "volume_down":
             self.backend.volume_down()
 
-        self.update_queue_display()
         self.update()
 
     def toggle_theme(self):
