@@ -1,4 +1,4 @@
-from PyQt6.QtCore import Qt, QTimer, QRectF, QPointF
+from PyQt6.QtCore import Qt, QTimer, QRectF, QPointF, QEasingCurve, QPropertyAnimation, pyqtProperty
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush
 from PyQt6.QtWidgets import QApplication, QWidget, QMenu, QTextEdit
 import sys
@@ -6,6 +6,29 @@ import os
 import math
 from player import Music_player
 from files import file_manager
+
+class AnimatedValue:
+    def __init__(self, start=0.0):
+        self._value = start
+        self.target = start
+        self.timer = QTimer()
+        self.timer.setInterval(16)
+        self.timer.timeout.connect(self.update)
+
+    def start_animation(self, target):
+        self.target = target
+        self.timer.start()
+
+    def update(self):
+        diff = self.target - self._value
+        if abs(diff) < 0.1:
+            self._value = self.target
+            self.timer.stop()
+        else:
+            self._value += diff * 0.15
+
+    def value(self):
+        return self._value
 
 class MusicPlayerUI(QWidget):
     def __init__(self):
@@ -17,6 +40,7 @@ class MusicPlayerUI(QWidget):
         self.songs_path = self.file_manager_.search()
         self.songs = [p.split("\\")[-1] for p in self.songs_path]
         self.scroll_offset = 0
+        self.scroll_animated = AnimatedValue(0)
 
         self.queue_display = QTextEdit(self)
         self.queue_display.setReadOnly(True)
@@ -25,22 +49,22 @@ class MusicPlayerUI(QWidget):
         self.queue_visible = False
 
         self.themes = {
-            "dark": {
-                "bg": QColor(18, 18, 18),
-                "fg": QColor(230, 230, 230),
-                "highlight": QColor(187, 134, 252),
-                "button_bg": QColor(31, 31, 31),
-                "button_fg": QColor(230, 230, 230)
+            "apple": {
+                "bg": QColor(255, 255, 255),
+                "fg": QColor(0, 0, 0),
+                "highlight": QColor(0, 122, 255),
+                "button_bg": QColor(242, 242, 247),
+                "button_fg": QColor(0, 0, 0)
             },
-            "bright": {
-                "bg": QColor(240, 240, 240),
-                "fg": QColor(30, 30, 30),
-                "highlight": QColor(98, 0, 238),
-                "button_bg": QColor(224, 224, 224),
-                "button_fg": QColor(30, 30, 30)
+            "apple_dark": {
+                "bg": QColor(28, 28, 30),
+                "fg": QColor(229, 229, 234),
+                "highlight": QColor(10, 132, 255),
+                "button_bg": QColor(44, 44, 46),
+                "button_fg": QColor(229, 229, 234)
             }
         }
-        self.theme_name = "dark"
+        self.theme_name = "apple"
         self.theme = self.themes[self.theme_name]
 
         self.playlists = ["Playlist 1", "Playlist 2", "Road Trip", "Workout Mix"]
@@ -56,7 +80,7 @@ class MusicPlayerUI(QWidget):
             "playlists": QRectF(20, 20, 110, 40),
             "favorites": QRectF(140, 20, 110, 40),
             "theme": QRectF(350, 20, 110, 40),
-            "toggle_queue": QRectF(470, 20, 40, 40)
+            "toggle_queue": QRectF(470, 20, 100, 40)  # Updated size for new name
         }
 
         self.bottom_buttons = {
@@ -80,7 +104,8 @@ class MusicPlayerUI(QWidget):
     def update_rotation(self):
         if self.is_playing:
             self.rotation_angle = (self.rotation_angle + 0.8) % 360
-            self.update()
+        self.scroll_animated.start_animation(self.scroll_offset)
+        self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -88,7 +113,8 @@ class MusicPlayerUI(QWidget):
         painter.fillRect(self.rect(), self.theme["bg"])
 
         for name, rect in self.top_buttons.items():
-            self.draw_button(painter, rect, name.capitalize(), hovered=(self.hovered_button == name))
+            label = "Queue 🎶" if name == "toggle_queue" else name.capitalize()
+            self.draw_button(painter, rect, label, hovered=(self.hovered_button == name))
 
         center = QPointF(self.width() / 2, 190)
         radius = 90
@@ -99,7 +125,7 @@ class MusicPlayerUI(QWidget):
         painter.restore()
 
         self.draw_volume_indicator(painter)
-        self.draw_list(painter, 30, 310, self.width() - 240, 310)
+        self.draw_list(painter, 30, 340, self.width() - 240, 310)
 
         for name, rect in self.bottom_buttons.items():
             icon = {
@@ -117,9 +143,9 @@ class MusicPlayerUI(QWidget):
     def draw_button(self, painter, rect, text, hovered=False):
         painter.setBrush(QBrush(self.theme["highlight"] if hovered else self.theme["button_bg"]))
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(rect, 6, 6)
+        painter.drawRoundedRect(rect, 8, 8)
         painter.setPen(self.theme["button_fg"])
-        font = QFont("Arial", 14 if len(text) == 1 else 16)
+        font = QFont("Helvetica Neue", 14 if len(text) == 1 else 16)
         painter.setFont(font)
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
 
@@ -152,7 +178,7 @@ class MusicPlayerUI(QWidget):
         items = self.get_current_list()
         lh = 30
         painter.setFont(QFont("Arial", 14))
-        start = self.scroll_offset
+        start = int(self.scroll_animated.value())
         end = min(start + height // lh, len(items))
         for i in range(start, end):
             r = QRectF(x, y + (i - start) * lh, width, lh)
@@ -161,7 +187,7 @@ class MusicPlayerUI(QWidget):
                 painter.setPen(self.theme["bg"])
             else:
                 painter.setPen(self.theme["fg"])
-            painter.drawText(r.adjusted(10, 0, 0, 0), Qt.AlignmentFlag.AlignVCenter, items[i])
+            painter.drawText(r, Qt.AlignmentFlag.AlignVCenter, items[i])
         painter.restore()
 
     def show_context_menu(self, global_pos):
@@ -173,7 +199,6 @@ class MusicPlayerUI(QWidget):
         remove_from_queue = menu.addAction("❌ Remove from Queue")
 
         action = menu.exec(global_pos)
-
         if action == play_action:
             self.backend.audio_controls.queue = self.songs_path
             self.backend.audio_controls.song_pointer = self.selected_index
@@ -188,7 +213,6 @@ class MusicPlayerUI(QWidget):
             print(f"Added to playlist: {self.get_current_list()[self.selected_index]}")
         elif action == remove_from_queue:
             self.backend.remove_from_queue(self.songs_path[self.selected_index])
-
         self.update()
 
     def wheelEvent(self, event):
@@ -199,10 +223,11 @@ class MusicPlayerUI(QWidget):
         self.update()
 
     def get_current_list(self):
-        if self.current_view == "songs": return self.songs
-        if self.current_view == "playlists": return self.playlists
-        if self.current_view == "favorites": return self.favorites
-        return []
+        return {
+            "songs": self.songs,
+            "playlists": self.playlists,
+            "favorites": self.favorites
+        }.get(self.current_view, [])
 
     def mousePressEvent(self, event):
         pos = event.position()
@@ -215,9 +240,9 @@ class MusicPlayerUI(QWidget):
                 if rect.contains(pos):
                     self.handle_bottom_button(name)
                     return
-            lr = QRectF(30, 310, self.width() - 240, 310)
+            lr = QRectF(30, 340, self.width() - 240, 310)
             if lr.contains(pos):
-                idx = int((pos.y() - 310) // 30) + self.scroll_offset
+                idx = int((pos.y() - 340) // 30) + self.scroll_offset
                 lst = self.get_current_list()
                 if 0 <= idx < len(lst):
                     self.selected_index = idx
@@ -227,11 +252,10 @@ class MusicPlayerUI(QWidget):
                     self.backend.audio_controls.is_paused = False
                     self.is_playing = True
                     self.update()
-
         elif event.button() == Qt.MouseButton.RightButton:
-            lr = QRectF(30, 310, self.width() - 240, 310)
+            lr = QRectF(30, 340, self.width() - 240, 310)
             if lr.contains(pos):
-                idx = int((pos.y() - 310) // 30) + self.scroll_offset
+                idx = int((pos.y() - 340) // 30) + self.scroll_offset
                 lst = self.get_current_list()
                 if 0 <= idx < len(lst):
                     self.selected_index = idx
@@ -309,8 +333,9 @@ class MusicPlayerUI(QWidget):
         self.update()
 
     def toggle_theme(self):
-        self.theme_name = "light" if self.theme_name == "dark" else "dark"
+        self.theme_name = "apple_dark" if self.theme_name == "apple" else "apple"
         self.theme = self.themes[self.theme_name]
+
 
     def keyPressEvent(self, event):
         max_idx = len(self.get_current_list()) - 1
