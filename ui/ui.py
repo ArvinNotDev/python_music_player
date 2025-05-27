@@ -5,6 +5,124 @@ import os
 import math
 from player.player import Music_player
 from utils.file_manager import file_manager
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLineEdit, QListWidget, QPushButton, QLabel, QMessageBox
+
+
+class PlaylistDialog(QDialog):
+    def __init__(self, parent, existing_playlists, theme='light'):
+        super().__init__(parent)
+        self.setWindowTitle("🎶 Add to Playlist")
+        self.setFixedSize(320, 420)
+        self.setModal(True)
+
+        self.selected_playlist = None
+        self.theme = theme
+
+        self.setStyleSheet(self.get_stylesheet())
+
+        layout = QVBoxLayout()
+
+        title = QLabel("➕ Add song to playlist")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setStyleSheet("font-size: 18px; font-weight: bold; margin-bottom: 10px;")
+        layout.addWidget(title)
+
+        layout.addWidget(QLabel("📂 Select existing playlist:"))
+        self.playlist_list = QListWidget()
+        self.playlist_list.addItems(existing_playlists)
+        self.playlist_list.setStyleSheet("border-radius: 8px;")
+        layout.addWidget(self.playlist_list)
+
+        layout.addWidget(QLabel("🆕 Or create new playlist:"))
+        self.name_input = QLineEdit()
+        self.name_input.setPlaceholderText("Enter new playlist name")
+        layout.addWidget(self.name_input)
+
+        self.add_button = QPushButton("Add")
+        self.add_button.clicked.connect(self.accept_selection)
+        layout.addWidget(self.add_button)
+
+        self.setLayout(layout)
+
+    def accept_selection(self):
+        name = self.name_input.text().strip()
+        if name:
+            self.selected_playlist = name
+        elif self.playlist_list.currentItem():
+            self.selected_playlist = self.playlist_list.currentItem().text()
+        else:
+            QMessageBox.warning(self, "No Selection", "Please select or enter a playlist name.")
+            return
+        self.accept()
+
+    def get_stylesheet(self):
+        if self.theme == 'dark':
+            return """
+                QDialog {
+                    background-color: #121212;
+                    color: #ffffff;
+                    border-radius: 10px;
+                }
+                QLabel {
+                    color: #dddddd;
+                }
+                QLineEdit {
+                    background-color: #1e1e1e;
+                    color: #ffffff;
+                    padding: 6px;
+                    border-radius: 6px;
+                    border: 1px solid #333333;
+                }
+                QListWidget {
+                    background-color: #1e1e1e;
+                    color: #ffffff;
+                    border: 1px solid #333333;
+                    padding: 4px;
+                }
+                QPushButton {
+                    background-color: #3f51b5;
+                    color: white;
+                    padding: 8px;
+                    border-radius: 6px;
+                }
+                QPushButton:hover {
+                    background-color: #5c6bc0;
+                }
+            """
+        else:  # light theme
+            return """
+                QDialog {
+                    background-color: #ffffff;
+                    color: #000000;
+                    border-radius: 10px;
+                }
+                QLabel {
+                    color: #333333;
+                }
+                QLineEdit {
+                    background-color: #f0f0f0;
+                    color: #000000;
+                    padding: 6px;
+                    border-radius: 6px;
+                    border: 1px solid #cccccc;
+                }
+                QListWidget {
+                    background-color: #f9f9f9;
+                    color: #000000;
+                    border: 1px solid #cccccc;
+                    padding: 4px;
+                }
+                QPushButton {
+                    background-color: #2196f3;
+                    color: white;
+                    padding: 8px;
+                    border-radius: 6px;
+                }
+                QPushButton:hover {
+                    background-color: #42a5f5;
+                }
+            """
+
 
 class AnimatedValue:
     def __init__(self, start=0.0):
@@ -68,7 +186,7 @@ class MusicPlayerUI(QWidget):
         self.theme = self.themes[self.theme_name]
 
         # Initialize favorites before calling refresh_lists
-        self.favorites = ["Favorite Song 1", "Favorite Song 2", "Favorite Song 3"]  # Default value
+        self.favorites = ["Favorite Song 1", "Favorite Song 2", "Favorite Song 3"]  # not implemented yet
         self.playlists = self.playlist_manager.get_all_playlists()
 
         self.current_view = "songs"
@@ -329,37 +447,63 @@ class MusicPlayerUI(QWidget):
         self.update()
 
     def handle_bottom_button(self, name):
-        """Handle clicks on bottom buttons."""
+        """Handle clicks on bottom control buttons."""
+        current_list = self.get_current_list()
+
         if name == "play":
             if not self.is_playing and self.songs_path:
                 self.backend.audio_controls.queue = self.songs_path
                 self.backend.audio_controls.song_pointer = self.selected_index
                 self.backend.start()
+                self.is_playing = True
             else:
                 self.backend.pause()
-            self.is_playing = not self.is_playing
+                self.is_playing = False
+
         elif name == "prev" and self.backend.audio_controls.queue:
             self.backend.prev_song()
             self.selected_index = self.backend.audio_controls.song_pointer
             self.is_playing = True
+
         elif name == "next" and self.backend.audio_controls.queue:
             self.backend.next_song()
             self.selected_index = self.backend.audio_controls.song_pointer
             self.is_playing = True
+
         elif name == "repeat":
             self.backend.toggle_repeat()
             self.songs_path = self.backend.audio_controls.queue
             self.selected_index = self.backend.audio_controls.song_pointer
-        elif name == "add_fav" and self.get_current_list():
-            self.favorites.append(self.get_current_list()[self.selected_index])
-            print(f"Added to favorites: {self.get_current_list()[self.selected_index]}")
-        elif name == "add_playlist" and self.get_current_list():
-            self.playlists.append(self.get_current_list()[self.selected_index])
-            print(f"Added to playlist: {self.get_current_list()[self.selected_index]}")
+
+        elif name == "add_fav" and current_list:
+            song = current_list[self.selected_index]
+            if song not in self.favorites:
+                self.favorites.append(song)
+                print(f"Added to favorites: {song}")
+            else:
+                print(f"Already in favorites: {song}")
+
+        elif name == "add_playlist":
+            if current_list:
+                song = current_list[self.selected_index]
+                existing_playlists = self.playlist_manager.get_all_playlists()
+
+                dialog = PlaylistDialog(self, existing_playlists)
+                if dialog.exec():
+                    selected_name = dialog.selected_playlist
+                    if selected_name not in existing_playlists:
+                        self.playlist_manager.add_playlist(selected_name, [song])
+                    else:
+                        self.playlist_manager.add_song_to_playlist(selected_name, song)
+
+
+
         elif name == "volume_up":
             self.backend.volume_up()
+
         elif name == "volume_down":
             self.backend.volume_down()
+
         self.refresh_lists()
         self.update()
 
