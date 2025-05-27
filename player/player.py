@@ -87,6 +87,7 @@ class Music_player:
         if self.audio_controls.song_pointer < len(self.audio_controls.queue):
             self.start()
         else:
+            self.audio_controls.song_pointer -= 1
             print("End of queue.")
 
     def prev_song(self):
