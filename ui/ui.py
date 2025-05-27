@@ -67,7 +67,7 @@ class MusicPlayerUI(QWidget):
         self.theme_name = "apple"
         self.theme = self.themes[self.theme_name]
 
-        self.playlists = self.playlist_manager.playlist_names()
+        self.playlists = self.playlist_manager.get_all_playlists()
         self.favorites = ["Favorite Song 1", "Favorite Song 2", "Favorite Song 3"]
 
         self.current_view = "songs"
