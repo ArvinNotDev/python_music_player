@@ -25,16 +25,14 @@ class Playlist:
         if name in self.playlists:
             del self.playlists[name]
             self.save_playlists()
-        else:
-            print(f"Playlist '{name}' not found.")
 
     def rename_playlist(self, old_name: str, new_name: str):
-        if old_name not in self.playlists:
-            print(f"Playlist '{old_name}' not found.")
-            return
-        if new_name in self.playlists:
-            print(f"A playlist with the name '{new_name}' already exists.")
-            return
+        if old_name in self.playlists and new_name not in self.playlists:
+            self.playlists[new_name] = self.playlists.pop(old_name)
+            self.save_playlists()
 
-        self.playlists[new_name] = self.playlists.pop(old_name)
-        self.save_playlists()
+    def get_playlist_names(self):
+        return list(self.playlists.keys())
+
+    def get_songs(self, playlist_name: str):
+        return self.playlists.get(playlist_name, [])

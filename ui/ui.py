@@ -30,8 +30,9 @@ class AnimatedValue:
         return self._value
 
 class MusicPlayerUI(QWidget):
-    def __init__(self):
+    def __init__(self, playlist_manager):
         super().__init__()
+        self.playlist_manager = playlist_manager
         self.setWindowTitle("Music Player UI")
         self.resize(800, 700)
         self.file_manager_ = file_manager()
@@ -66,7 +67,7 @@ class MusicPlayerUI(QWidget):
         self.theme_name = "apple"
         self.theme = self.themes[self.theme_name]
 
-        self.playlists = ["Playlist 1", "Playlist 2", "Road Trip", "Workout Mix"]
+        self.playlists = self.playlist_manager.playlist_names()
         self.favorites = ["Favorite Song 1", "Favorite Song 2", "Favorite Song 3"]
 
         self.current_view = "songs"
