@@ -1,27 +1,63 @@
 from PyQt6.QtCore import Qt, QTimer, QRectF, QPointF
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush
-from PyQt6.QtWidgets import QWidget, QMenu, QTextEdit
+from PyQt6.QtWidgets import QWidget, QMenu, QTextEdit, QDialog, QVBoxLayout, QLineEdit, QListWidget, QPushButton, QLabel, QMessageBox, QInputDialog
 import os
 import math
 from player.player import Music_player
 from utils.file_manager import file_manager
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLineEdit, QListWidget, QPushButton, QLabel, QMessageBox
+from playlist.playlists import Playlist
 
+class PlaylistManager:
+    def __init__(self):
+        self.playlist_obj = Playlist()
+
+    def get_all_playlists(self):
+        return self.playlist_obj.get_playlist_names()
+
+    def get_songs(self, playlist_name):
+        return self.playlist_obj.get_songs(playlist_name)
+
+    def add_playlist(self, name, songs=None):
+        if songs is None:
+            songs = []
+        self.playlist_obj.new_playlist(name, songs)
+
+    def delete_playlist(self, name):
+        self.playlist_obj.delete_playlist(name)
+
+    def rename_playlist(self, old_name, new_name):
+        self.playlist_obj.rename_playlist(old_name, new_name)
+
+    def add_song_to_playlist(self, playlist_name, song):
+        songs = self.get_songs(playlist_name)
+        if song not in songs:
+            songs.append(song)
+            self.playlist_obj.new_playlist(playlist_name, songs)
+
+    def remove_song_from_playlist(self, playlist_name, song):
+        songs = self.get_songs(playlist_name)
+        if song in songs:
+            songs.remove(song)
+            self.playlist_obj.new_playlist(playlist_name, songs)
+
+    def get_favorites(self):
+        return self.get_songs("Favorites")
+
+    def add_to_favorites(self, song):
+        self.add_song_to_playlist("Favorites", song)
 
 class PlaylistDialog(QDialog):
-    def __init__(self, parent, existing_playlists, theme='light'):
+    def __init__(self, parent, existing_playlists, theme='apple'):
         super().__init__(parent)
         self.setWindowTitle("🎶 Add to Playlist")
         self.setFixedSize(320, 420)
         self.setModal(True)
-
         self.selected_playlist = None
-        self.theme = theme
+        self.theme = 'dark' if theme == 'apple_dark' else 'light'
 
         self.setStyleSheet(self.get_stylesheet())
 
         layout = QVBoxLayout()
-
         title = QLabel("➕ Add song to playlist")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet("font-size: 18px; font-weight: bold; margin-bottom: 10px;")
@@ -58,71 +94,22 @@ class PlaylistDialog(QDialog):
     def get_stylesheet(self):
         if self.theme == 'dark':
             return """
-                QDialog {
-                    background-color: #121212;
-                    color: #ffffff;
-                    border-radius: 10px;
-                }
-                QLabel {
-                    color: #dddddd;
-                }
-                QLineEdit {
-                    background-color: #1e1e1e;
-                    color: #ffffff;
-                    padding: 6px;
-                    border-radius: 6px;
-                    border: 1px solid #333333;
-                }
-                QListWidget {
-                    background-color: #1e1e1e;
-                    color: #ffffff;
-                    border: 1px solid #333333;
-                    padding: 4px;
-                }
-                QPushButton {
-                    background-color: #3f51b5;
-                    color: white;
-                    padding: 8px;
-                    border-radius: 6px;
-                }
-                QPushButton:hover {
-                    background-color: #5c6bc0;
-                }
+                QDialog { background-color: #1C1C1E; color: #E5E5EA; border-radius: 10px; }
+                QLabel { color: #E5E5EA; }
+                QLineEdit { background-color: #2C2C2E; color: #E5E5EA; padding: 6px; border-radius: 6px; border: 1px solid #3A3A3C; }
+                QListWidget { background-color: #2C2C2E; color: #E5E5EA; border: 1px solid #3A3A3C; padding: 4px; }
+                QPushButton { background-color: #007AFF; color: white; padding: 8px; border-radius: 6px; }
+                QPushButton:hover { background-color: #0A84FF; }
             """
-        else:  # light theme
+        else:
             return """
-                QDialog {
-                    background-color: #ffffff;
-                    color: #000000;
-                    border-radius: 10px;
-                }
-                QLabel {
-                    color: #333333;
-                }
-                QLineEdit {
-                    background-color: #f0f0f0;
-                    color: #000000;
-                    padding: 6px;
-                    border-radius: 6px;
-                    border: 1px solid #cccccc;
-                }
-                QListWidget {
-                    background-color: #f9f9f9;
-                    color: #000000;
-                    border: 1px solid #cccccc;
-                    padding: 4px;
-                }
-                QPushButton {
-                    background-color: #2196f3;
-                    color: white;
-                    padding: 8px;
-                    border-radius: 6px;
-                }
-                QPushButton:hover {
-                    background-color: #42a5f5;
-                }
+                QDialog { background-color: #FFFFFF; color: #000000; border-radius: 10px; }
+                QLabel { color: #333333; }
+                QLineEdit { background-color: #F0F0F0; color: #000000; padding: 6px; border-radius: 6px; border: 1px solid #CCCCCC; }
+                QListWidget { background-color: #F9F9F9; color: #000000; border: 1px solid #CCCCCC; padding: 4px; }
+                QPushButton { background-color: #007AFF; color: white; padding: 8px; border-radius: 6px; }
+                QPushButton:hover { background-color: #42A5F5; }
             """
-
 
 class AnimatedValue:
     def __init__(self, start=0.0):
@@ -156,7 +143,7 @@ class MusicPlayerUI(QWidget):
         self.file_manager_ = file_manager()
         self.backend = Music_player()
         self.songs_path = self.file_manager_.search()
-        self.songs = [p.split("\\")[-1] for p in self.songs_path]
+        self.songs = [p.split("\\")[-1] for p in self.songs_path]  # Filenames for display
         self.scroll_offset = 0
         self.scroll_animated = AnimatedValue(0)
 
@@ -185,10 +172,10 @@ class MusicPlayerUI(QWidget):
         self.theme_name = "apple"
         self.theme = self.themes[self.theme_name]
 
-        # Initialize favorites before calling refresh_lists
-        self.favorites = ["Favorite Song 1", "Favorite Song 2", "Favorite Song 3"]  # not implemented yet
+        # Initialize lists with full paths
+        self.favorites = self.playlist_manager.get_favorites() or []
         self.playlists = self.playlist_manager.get_all_playlists()
-
+        self.current_playlist_songs = []  # Full paths of songs in the selected playlist
         self.current_view = "songs"
         self.selected_index = 0
         self.is_playing = False
@@ -220,15 +207,13 @@ class MusicPlayerUI(QWidget):
         self.setMouseTracking(True)
         self.hovered_button = None
 
-        # Now safe to call refresh_lists
-        self.refresh_lists()
-
     def refresh_lists(self):
-        """Refresh playlists and favorites from the manager."""
+        """Refresh playlists, favorites, and current playlist songs."""
         self.playlists = self.playlist_manager.get_all_playlists()
-        if hasattr(self.playlist_manager, 'get_favorites'):
-            self.favorites = self.playlist_manager.get_favorites()
-            
+        self.favorites = self.playlist_manager.get_favorites() or []
+        if self.current_view == "playlist_songs" and hasattr(self, 'selected_playlist'):
+            self.current_playlist_songs = self.playlist_manager.get_songs(self.selected_playlist) or []
+
     def update_rotation(self):
         """Update rotation animation and queue display."""
         if self.is_playing:
@@ -242,12 +227,10 @@ class MusicPlayerUI(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.fillRect(self.rect(), self.theme["bg"])
 
-        # Draw top buttons
         for name, rect in self.top_buttons.items():
             label = "Queue 🎶" if name == "toggle_queue" else name.capitalize()
             self.draw_button(painter, rect, label, hovered=(self.hovered_button == name))
 
-        # Draw rotating CD
         center = QPointF(self.width() / 2, 190)
         radius = 90
         painter.save()
@@ -256,11 +239,9 @@ class MusicPlayerUI(QWidget):
         self.draw_cd(painter, radius)
         painter.restore()
 
-        # Draw volume indicator and list
         self.draw_volume_indicator(painter)
         self.draw_list(painter, 30, 340, self.width() - 240, 310)
 
-        # Draw bottom buttons
         for name, rect in self.bottom_buttons.items():
             icon = {
                 "prev": "⏮",
@@ -284,7 +265,6 @@ class MusicPlayerUI(QWidget):
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
 
     def draw_volume_indicator(self, painter):
-        """Draw the current volume level."""
         rect = QRectF(20, 70, self.width() - 40, 20)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QBrush(self.theme["button_bg"]))
@@ -311,7 +291,7 @@ class MusicPlayerUI(QWidget):
         painter.save()
         painter.setClipRect(x, y, width, height)
         items = self.get_current_list()
-        if not items:  # Handle empty list
+        if not items:
             painter.setPen(self.theme["fg"])
             painter.drawText(QRectF(x, y, width, height), Qt.AlignmentFlag.AlignCenter, "No items available")
             painter.restore()
@@ -327,36 +307,173 @@ class MusicPlayerUI(QWidget):
                 painter.setPen(self.theme["bg"])
             else:
                 painter.setPen(self.theme["fg"])
-            painter.drawText(r, Qt.AlignmentFlag.AlignVCenter, items[i])
+            if self.current_view == "playlists":
+                painter.drawText(r, Qt.AlignmentFlag.AlignVCenter, items[i])
+            else:
+                painter.drawText(r, Qt.AlignmentFlag.AlignVCenter, os.path.basename(items[i]))
         painter.restore()
 
     def show_context_menu(self, global_pos):
         menu = QMenu()
-        play_action = menu.addAction("▶️ Play")
-        play_next_action = menu.addAction("⏭️ Play Next")
-        add_fav_action = menu.addAction("❤️ Add to Favorites")
-        add_playlist_action = menu.addAction("➕ Add to Playlist")
-        remove_from_queue = menu.addAction("❌ Remove from Queue")
+        current_list = self.get_current_list()
+        if not current_list:
+            return
 
-        action = menu.exec(global_pos)
-        if action == play_action and self.get_current_list():
-            self.backend.audio_controls.queue = self.songs_path
+        if self.current_view == "playlists":
+            menu.addAction("🎵 Show Songs", self.show_playlist_songs)
+            if self.playlists[self.selected_index] != "Favorites":
+                menu.addAction("🗑️ Delete Playlist", self.delete_playlist)
+                menu.addAction("✏️ Rename Playlist", self.rename_playlist)
+        else:
+            menu.addAction("▶️ Play", self.play_song)
+            menu.addAction("⏭️ Play Next", self.play_next)
+            menu.addAction("❤️ Add to Favorites", self.add_to_favorites)
+            menu.addAction("➕ Add to Playlist", self.add_to_playlist)
+            if self.current_view == "favorites":
+                menu.addAction("❌ Remove from Favorites", self.remove_from_favorites)
+            elif self.current_view == "playlist_songs":
+                menu.addAction("❌ Remove from Playlist", self.remove_from_playlist)
+            menu.addAction("❌ Remove from Queue", self.remove_from_queue)
+
+        menu.exec(global_pos)
+        self.refresh_lists()
+        self.update()
+
+    def play_song(self):
+        current_list = self.get_current_list()
+        if current_list:
+            if self.current_view == "songs":
+                queue = self.songs_path
+            elif self.current_view in ("favorites", "playlist_songs"):
+                queue = current_list  # Already full paths
+            else:
+                return
+            self.backend.audio_controls.queue = queue
             self.backend.audio_controls.song_pointer = self.selected_index
             self.backend.start()
             self.backend.audio_controls.is_paused = False
             self.is_playing = True
-        elif action == play_next_action and self.get_current_list():
-            self.backend.playnext(self.songs_path[self.selected_index], self.selected_index)
-        elif action == add_fav_action and self.get_current_list():
-            self.favorites.append(self.get_current_list()[self.selected_index])
-            print(f"Added to favorites: {self.get_current_list()[self.selected_index]}")
-        elif action == add_playlist_action and self.get_current_list():
-            self.playlists.append(self.get_current_list()[self.selected_index])
-            print(f"Added to playlist: {self.get_current_list()[self.selected_index]}")
-        elif action == remove_from_queue and self.backend.audio_controls.queue:
-            self.backend.remove_from_queue(self.songs_path[self.selected_index])
-        self.refresh_lists()
-        self.update()
+            self.update()
+
+    def play_next(self):
+        current_list = self.get_current_list()
+        if current_list:
+            if self.current_view == "songs":
+                song_path = self.songs_path[self.selected_index]
+            else:
+                song_path = current_list[self.selected_index]
+            self.backend.playnext(song_path, self.selected_index)
+            self.update()
+
+    def add_to_favorites(self):
+        current_list = self.get_current_list()
+        if current_list:
+            if self.current_view == "songs":
+                song_path = self.songs_path[self.selected_index]
+            else:
+                song_path = current_list[self.selected_index]
+            self.playlist_manager.add_to_favorites(song_path)
+            print(f"Added to favorites: {os.path.basename(song_path)}")
+            self.refresh_lists()
+            self.update()
+
+    def remove_from_favorites(self):
+        if self.current_view == "favorites" and self.favorites:
+            song = self.favorites[self.selected_index]
+            self.playlist_manager.remove_song_from_playlist("Favorites", song)
+            print(f"Removed from favorites: {os.path.basename(song)}")
+            self.refresh_lists()
+            self.update()
+
+    def add_to_playlist(self):
+        current_list = self.get_current_list()
+        if current_list:
+            if self.current_view == "songs":
+                song_path = self.songs_path[self.selected_index]
+            else:
+                song_path = current_list[self.selected_index]
+            dialog = PlaylistDialog(self, self.playlists, self.theme_name)
+            if dialog.exec():
+                selected_name = dialog.selected_playlist
+                if selected_name not in self.playlists:
+                    self.playlist_manager.add_playlist(selected_name, [song_path])
+                else:
+                    self.playlist_manager.add_song_to_playlist(selected_name, song_path)
+                print(f"Added to playlist {selected_name}: {os.path.basename(song_path)}")
+                self.refresh_lists()
+                self.update()
+
+    def remove_from_playlist(self):
+        if self.current_view == "playlist_songs" and self.current_playlist_songs:
+            song = self.current_playlist_songs[self.selected_index]
+            self.playlist_manager.remove_song_from_playlist(self.selected_playlist, song)
+            print(f"Removed from playlist {self.selected_playlist}: {os.path.basename(song)}")
+            self.refresh_lists()
+            self.update()
+
+    def remove_from_queue(self):
+        if self.backend.audio_controls.queue:
+            current_list = self.get_current_list()
+            if self.current_view == "songs":
+                song_path = self.songs_path[self.selected_index]
+            else:
+                song_path = current_list[self.selected_index]
+            self.backend.remove_from_queue(song_path)
+            self.update_queue_display()
+
+    def show_playlist_songs(self):
+        if self.current_view == "playlists" and self.playlists:
+            self.selected_playlist = self.playlists[self.selected_index]
+            self.current_playlist_songs = self.playlist_manager.get_songs(self.selected_playlist) or []
+            self.current_view = "playlist_songs"
+            self.selected_index = 0
+            self.scroll_offset = 0
+            self.update()
+
+    def delete_playlist(self):
+        if self.current_view == "playlists" and self.playlists and self.playlists[self.selected_index] != "Favorites":
+            playlist_name = self.playlists[self.selected_index]
+            reply = QMessageBox.question(self, "Delete Playlist", f"Are you sure you want to delete '{playlist_name}'?",
+                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.Yes:
+                self.playlist_manager.delete_playlist(playlist_name)
+                print(f"Deleted playlist: {playlist_name}")
+                self.refresh_lists()
+                self.update()
+
+    def rename_playlist(self):
+        if self.current_view == "playlists" and self.playlists and self.playlists[self.selected_index] != "Favorites":
+            playlist_name = self.playlists[self.selected_index]
+            dialog = QInputDialog(self)
+            dialog.setWindowTitle("Rename Playlist")
+            dialog.setLabelText(f"Enter new name for '{playlist_name}':")
+            dialog.setTextValue(playlist_name)
+            dialog.setStyleSheet(self.get_dialog_stylesheet())
+            if dialog.exec() and dialog.textValue().strip():
+                new_name = dialog.textValue().strip()
+                if new_name not in self.playlists:
+                    self.playlist_manager.rename_playlist(playlist_name, new_name)
+                    print(f"Renamed playlist from {playlist_name} to {new_name}")
+                    self.refresh_lists()
+                    self.update()
+                else:
+                    QMessageBox.warning(self, "Invalid Name", "Playlist name already exists.")
+
+    def get_dialog_stylesheet(self):
+        if self.theme_name == 'apple_dark':
+            return """
+                QInputDialog { background-color: #1C1C1E; color: #E5E5EA; }
+                QLineEdit { background-color: #2C2C2E; color: #E5E5EA; padding: 6px; border-radius: 6px; border: 1px solid #3A3A3C; }
+                QPushButton { background-color: #007AFF; color: white; padding: 8px; border-radius: 6px; }
+                QPushButton:hover { background-color: #0A84FF; }
+            """
+        else:
+            return """
+                QInputDialog { background-color: #FFFFFF; color: #000000; }
+                QLineEdit { background-color: #F0F0F0; color: #000000; padding: 6px; border-radius: 6px; border: 1px solid #CCCCCC; }
+                QPushButton { background-color: #007AFF; color: white; padding: 8px; border-radius: 6px; }
+                QPushButton:hover { background-color: #42A5F5; }
+            """
 
     def wheelEvent(self, event):
         delta = event.angleDelta().y()
@@ -366,11 +483,11 @@ class MusicPlayerUI(QWidget):
         self.update()
 
     def get_current_list(self):
-        """Return the current list based on the view."""
         return {
-            "songs": self.songs,
+            "songs": self.songs_path,
             "playlists": self.playlists,
-            "favorites": self.favorites
+            "favorites": self.favorites,
+            "playlist_songs": self.current_playlist_songs
         }.get(self.current_view, [])
 
     def mousePressEvent(self, event):
@@ -390,11 +507,15 @@ class MusicPlayerUI(QWidget):
                 lst = self.get_current_list()
                 if 0 <= idx < len(lst):
                     self.selected_index = idx
-                    self.backend.audio_controls.queue = self.songs_path
-                    self.backend.audio_controls.song_pointer = idx
-                    self.backend.start()
-                    self.backend.audio_controls.is_paused = False
-                    self.is_playing = True
+                    if self.current_view == "playlists":
+                        self.show_playlist_songs()
+                    elif self.current_view in ("songs", "favorites", "playlist_songs"):
+                        queue = self.get_current_list() if self.current_view != "songs" else self.songs_path
+                        self.backend.audio_controls.queue = queue
+                        self.backend.audio_controls.song_pointer = self.selected_index
+                        self.backend.start()
+                        self.backend.audio_controls.is_paused = False
+                        self.is_playing = True
                     self.update()
         elif event.button() == Qt.MouseButton.RightButton:
             lr = QRectF(30, 340, self.width() - 240, 310)
@@ -407,7 +528,6 @@ class MusicPlayerUI(QWidget):
         self.update_queue_display()
 
     def update_queue_display(self):
-        """Update the queue display with the current queue state."""
         if self.queue_visible:
             self.queue_display.show()
             current_index = self.backend.audio_controls.song_pointer
@@ -432,90 +552,84 @@ class MusicPlayerUI(QWidget):
             self.update()
 
     def handle_top_button(self, name):
-        """Handle clicks on top buttons."""
         if name == "playlists":
             self.current_view, self.selected_index = "playlists", 0
+            self.current_playlist_songs = []
         elif name == "favorites":
             self.current_view, self.selected_index = "favorites", 0
+            self.current_playlist_songs = []
         elif name == "theme":
             self.toggle_theme()
         elif name == "list":
             self.current_view, self.selected_index = "songs", 0
+            self.current_playlist_songs = []
         elif name == "toggle_queue":
             self.queue_visible = not self.queue_visible
             self.update_queue_display()
+        self.refresh_lists()
         self.update()
 
     def handle_bottom_button(self, name):
-        """Handle clicks on bottom control buttons."""
         current_list = self.get_current_list()
-
         if name == "play":
-            if not self.is_playing and self.songs_path:
-                self.backend.audio_controls.queue = self.songs_path
+            if not self.is_playing and current_list:
+                queue = current_list if self.current_view != "songs" else self.songs_path
+                self.backend.audio_controls.queue = queue
                 self.backend.audio_controls.song_pointer = self.selected_index
                 self.backend.start()
                 self.is_playing = True
             else:
                 self.backend.pause()
                 self.is_playing = False
-
         elif name == "prev" and self.backend.audio_controls.queue:
             self.backend.prev_song()
             self.selected_index = self.backend.audio_controls.song_pointer
             self.is_playing = True
-
         elif name == "next" and self.backend.audio_controls.queue:
             self.backend.next_song()
             self.selected_index = self.backend.audio_controls.song_pointer
             self.is_playing = True
-
         elif name == "repeat":
             self.backend.toggle_repeat()
             self.songs_path = self.backend.audio_controls.queue
             self.selected_index = self.backend.audio_controls.song_pointer
-
-        elif name == "add_fav" and current_list:
-            song = current_list[self.selected_index]
-            if song not in self.favorites:
-                self.favorites.append(song)
-                print(f"Added to favorites: {song}")
-            else:
-                print(f"Already in favorites: {song}")
-
+        elif name == "add_fav":
+            if current_list:
+                if self.current_view == "songs":
+                    song_path = self.songs_path[self.selected_index]
+                else:
+                    song_path = current_list[self.selected_index]
+                self.playlist_manager.add_to_favorites(song_path)
+                print(f"Added to favorites: {os.path.basename(song_path)}")
+                self.refresh_lists()
         elif name == "add_playlist":
             if current_list:
-                song = current_list[self.selected_index]
-                existing_playlists = self.playlist_manager.get_all_playlists()
-
-                dialog = PlaylistDialog(self, existing_playlists)
+                if self.current_view == "songs":
+                    song_path = self.songs_path[self.selected_index]
+                else:
+                    song_path = current_list[self.selected_index]
+                dialog = PlaylistDialog(self, self.playlists, self.theme_name)
                 if dialog.exec():
                     selected_name = dialog.selected_playlist
-                    if selected_name not in existing_playlists:
-                        self.playlist_manager.add_playlist(selected_name, [song])
+                    if selected_name not in self.playlists:
+                        self.playlist_manager.add_playlist(selected_name, [song_path])
                     else:
-                        self.playlist_manager.add_song_to_playlist(selected_name, song)
-
-
-
+                        self.playlist_manager.add_song_to_playlist(selected_name, song_path)
+                    print(f"Added to playlist {selected_name}: {os.path.basename(song_path)}")
+                    self.refresh_lists()
         elif name == "volume_up":
             self.backend.volume_up()
-
         elif name == "volume_down":
             self.backend.volume_down()
-
-        self.refresh_lists()
         self.update()
 
     def toggle_theme(self):
-        """Switch between light and dark themes."""
         self.theme_name = "apple_dark" if self.theme_name == "apple" else "apple"
         self.theme = self.themes[self.theme_name]
 
     def keyPressEvent(self, event):
-        """Handle keyboard navigation."""
         max_idx = len(self.get_current_list()) - 1
-        if not max_idx >= 0:
+        if max_idx < 0:
             return
         if event.key() == Qt.Key.Key_Up and self.selected_index > 0:
             self.selected_index -= 1
@@ -526,11 +640,10 @@ class MusicPlayerUI(QWidget):
             visible_count = 310 // 30
             if self.selected_index >= self.scroll_offset + visible_count:
                 self.scroll_offset = self.selected_index - visible_count + 1
-        elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and self.songs_path:
-            self.backend.audio_controls.queue = self.songs_path
-            self.backend.audio_controls.song_pointer = self.selected_index
-            self.backend.start()
-            self.backend.audio_controls.is_paused = False
-            self.is_playing = True
+        elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if self.current_view == "playlists":
+                self.show_playlist_songs()
+            elif self.current_view in ("songs", "favorites", "playlist_songs"):
+                self.play_song()
         self.update_queue_display()
         self.update()
