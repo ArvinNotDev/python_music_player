@@ -1,19 +1,8 @@
-from dataclasses import dataclass, field
-from os import path
 import pygame
 import random
-from files import file_manager
 import threading
 import time
-
-@dataclass
-class Audio_controls:
-    file_manager_ = file_manager()
-    queue: list = field(default_factory=lambda: file_manager().search())
-    song_pointer: int = 0
-    repeat: int = 1
-    music_time: float = 0
-    is_paused: bool = False
+from player.audio_controls import Audio_controls
 
 class Music_player:
     def __init__(self):
@@ -92,8 +81,6 @@ class Music_player:
         else:
             print("No song to play at current pointer.")
 
-
-
     def next_song(self):
         self.audio_controls.is_paused = False
         self.audio_controls.song_pointer += 1
@@ -125,7 +112,6 @@ class Music_player:
             self.audio_controls.song_pointer = 0
             self.start()
 
-
             
     def listen_to_end(self):
         if self.is_next_or_prev:
@@ -139,9 +125,3 @@ class Music_player:
                     self.start()
                     return
             time.sleep(0.1)
-
-        
-
-A = file_manager()
-music_list = A.search()
-print(music_list)
