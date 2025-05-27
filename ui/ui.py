@@ -67,8 +67,9 @@ class MusicPlayerUI(QWidget):
         self.theme_name = "apple"
         self.theme = self.themes[self.theme_name]
 
+        # Initialize favorites before calling refresh_lists
+        self.favorites = ["Favorite Song 1", "Favorite Song 2", "Favorite Song 3"]  # Default value
         self.playlists = self.playlist_manager.get_all_playlists()
-        self.favorites = ["Favorite Song 1", "Favorite Song 2", "Favorite Song 3"]
 
         self.current_view = "songs"
         self.selected_index = 0
@@ -80,7 +81,7 @@ class MusicPlayerUI(QWidget):
             "playlists": QRectF(20, 20, 110, 40),
             "favorites": QRectF(140, 20, 110, 40),
             "theme": QRectF(350, 20, 110, 40),
-            "toggle_queue": QRectF(470, 20, 100, 40)  # Updated size for new name
+            "toggle_queue": QRectF(470, 20, 100, 40)
         }
 
         self.bottom_buttons = {
@@ -101,10 +102,21 @@ class MusicPlayerUI(QWidget):
         self.setMouseTracking(True)
         self.hovered_button = None
 
+        # Now safe to call refresh_lists
+        self.refresh_lists()
+
+    def refresh_lists(self):
+        """Refresh playlists and favorites from the manager."""
+        self.playlists = self.playlist_manager.get_all_playlists()
+        if hasattr(self.playlist_manager, 'get_favorites'):
+            self.favorites = self.playlist_manager.get_favorites()
+            
     def update_rotation(self):
+        """Update rotation animation and queue display."""
         if self.is_playing:
             self.rotation_angle = (self.rotation_angle + 0.8) % 360
         self.scroll_animated.start_animation(self.scroll_offset)
+        self.update_queue_display()
         self.update()
 
     def paintEvent(self, event):
@@ -112,10 +124,12 @@ class MusicPlayerUI(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.fillRect(self.rect(), self.theme["bg"])
 
+        # Draw top buttons
         for name, rect in self.top_buttons.items():
             label = "Queue 🎶" if name == "toggle_queue" else name.capitalize()
             self.draw_button(painter, rect, label, hovered=(self.hovered_button == name))
 
+        # Draw rotating CD
         center = QPointF(self.width() / 2, 190)
         radius = 90
         painter.save()
@@ -124,15 +138,17 @@ class MusicPlayerUI(QWidget):
         self.draw_cd(painter, radius)
         painter.restore()
 
+        # Draw volume indicator and list
         self.draw_volume_indicator(painter)
         self.draw_list(painter, 30, 340, self.width() - 240, 310)
 
+        # Draw bottom buttons
         for name, rect in self.bottom_buttons.items():
             icon = {
                 "prev": "⏮",
                 "play": "⏸" if self.is_playing else "▶️",
                 "next": "⏭",
-                "repeat": {1: "🔁", 2: "🔂", 3: "🔀"}[self.backend.audio_controls.repeat],
+                "repeat": {1: "🔁", 2: "🔂", 3: "🔀"}.get(self.backend.audio_controls.repeat, "🔁"),
                 "add_fav": "❤️",
                 "add_playlist": "➕",
                 "volume_down": "🔉",
@@ -150,6 +166,7 @@ class MusicPlayerUI(QWidget):
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
 
     def draw_volume_indicator(self, painter):
+        """Draw the current volume level."""
         rect = QRectF(20, 70, self.width() - 40, 20)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QBrush(self.theme["button_bg"]))
@@ -176,6 +193,11 @@ class MusicPlayerUI(QWidget):
         painter.save()
         painter.setClipRect(x, y, width, height)
         items = self.get_current_list()
+        if not items:  # Handle empty list
+            painter.setPen(self.theme["fg"])
+            painter.drawText(QRectF(x, y, width, height), Qt.AlignmentFlag.AlignCenter, "No items available")
+            painter.restore()
+            return
         lh = 30
         painter.setFont(QFont("Arial", 14))
         start = int(self.scroll_animated.value())
@@ -199,20 +221,23 @@ class MusicPlayerUI(QWidget):
         remove_from_queue = menu.addAction("❌ Remove from Queue")
 
         action = menu.exec(global_pos)
-        if action == play_action:
+        if action == play_action and self.get_current_list():
             self.backend.audio_controls.queue = self.songs_path
             self.backend.audio_controls.song_pointer = self.selected_index
             self.backend.start()
             self.backend.audio_controls.is_paused = False
             self.is_playing = True
-        elif action == play_next_action:
+        elif action == play_next_action and self.get_current_list():
             self.backend.playnext(self.songs_path[self.selected_index], self.selected_index)
-        elif action == add_fav_action:
+        elif action == add_fav_action and self.get_current_list():
+            self.favorites.append(self.get_current_list()[self.selected_index])
             print(f"Added to favorites: {self.get_current_list()[self.selected_index]}")
-        elif action == add_playlist_action:
+        elif action == add_playlist_action and self.get_current_list():
+            self.playlists.append(self.get_current_list()[self.selected_index])
             print(f"Added to playlist: {self.get_current_list()[self.selected_index]}")
-        elif action == remove_from_queue:
+        elif action == remove_from_queue and self.backend.audio_controls.queue:
             self.backend.remove_from_queue(self.songs_path[self.selected_index])
+        self.refresh_lists()
         self.update()
 
     def wheelEvent(self, event):
@@ -223,6 +248,7 @@ class MusicPlayerUI(QWidget):
         self.update()
 
     def get_current_list(self):
+        """Return the current list based on the view."""
         return {
             "songs": self.songs,
             "playlists": self.playlists,
@@ -241,7 +267,7 @@ class MusicPlayerUI(QWidget):
                     self.handle_bottom_button(name)
                     return
             lr = QRectF(30, 340, self.width() - 240, 310)
-            if lr.contains(pos):
+            if lr.contains(pos) and self.get_current_list():
                 idx = int((pos.y() - 340) // 30) + self.scroll_offset
                 lst = self.get_current_list()
                 if 0 <= idx < len(lst):
@@ -254,7 +280,7 @@ class MusicPlayerUI(QWidget):
                     self.update()
         elif event.button() == Qt.MouseButton.RightButton:
             lr = QRectF(30, 340, self.width() - 240, 310)
-            if lr.contains(pos):
+            if lr.contains(pos) and self.get_current_list():
                 idx = int((pos.y() - 340) // 30) + self.scroll_offset
                 lst = self.get_current_list()
                 if 0 <= idx < len(lst):
@@ -263,13 +289,14 @@ class MusicPlayerUI(QWidget):
         self.update_queue_display()
 
     def update_queue_display(self):
+        """Update the queue display with the current queue state."""
         if self.queue_visible:
             self.queue_display.show()
             current_index = self.backend.audio_controls.song_pointer
-            queue = self.backend.audio_controls.queue
-            formatted = ""
+            queue = self.backend.audio_controls.queue or []
+            formatted = "Queue is empty" if not queue else ""
             for i, song in enumerate(queue):
-                marker = "🎵 " if i == current_index else "   "
+                marker = "🎧 " if i == current_index else "   "
                 formatted += f"{marker}{os.path.basename(song)}\n--------------------\n"
             self.queue_display.setText(formatted)
         else:
@@ -287,6 +314,7 @@ class MusicPlayerUI(QWidget):
             self.update()
 
     def handle_top_button(self, name):
+        """Handle clicks on top buttons."""
         if name == "playlists":
             self.current_view, self.selected_index = "playlists", 0
         elif name == "favorites":
@@ -301,19 +329,20 @@ class MusicPlayerUI(QWidget):
         self.update()
 
     def handle_bottom_button(self, name):
+        """Handle clicks on bottom buttons."""
         if name == "play":
-            if not self.is_playing:
+            if not self.is_playing and self.songs_path:
                 self.backend.audio_controls.queue = self.songs_path
                 self.backend.audio_controls.song_pointer = self.selected_index
                 self.backend.start()
             else:
                 self.backend.pause()
             self.is_playing = not self.is_playing
-        elif name == "prev":
+        elif name == "prev" and self.backend.audio_controls.queue:
             self.backend.prev_song()
             self.selected_index = self.backend.audio_controls.song_pointer
             self.is_playing = True
-        elif name == "next":
+        elif name == "next" and self.backend.audio_controls.queue:
             self.backend.next_song()
             self.selected_index = self.backend.audio_controls.song_pointer
             self.is_playing = True
@@ -321,32 +350,43 @@ class MusicPlayerUI(QWidget):
             self.backend.toggle_repeat()
             self.songs_path = self.backend.audio_controls.queue
             self.selected_index = self.backend.audio_controls.song_pointer
-        elif name == "add_fav":
+        elif name == "add_fav" and self.get_current_list():
+            self.favorites.append(self.get_current_list()[self.selected_index])
             print(f"Added to favorites: {self.get_current_list()[self.selected_index]}")
-        elif name == "add_playlist":
+        elif name == "add_playlist" and self.get_current_list():
+            self.playlists.append(self.get_current_list()[self.selected_index])
             print(f"Added to playlist: {self.get_current_list()[self.selected_index]}")
         elif name == "volume_up":
             self.backend.volume_up()
         elif name == "volume_down":
             self.backend.volume_down()
-
+        self.refresh_lists()
         self.update()
 
     def toggle_theme(self):
+        """Switch between light and dark themes."""
         self.theme_name = "apple_dark" if self.theme_name == "apple" else "apple"
         self.theme = self.themes[self.theme_name]
 
-
     def keyPressEvent(self, event):
+        """Handle keyboard navigation."""
         max_idx = len(self.get_current_list()) - 1
+        if not max_idx >= 0:
+            return
         if event.key() == Qt.Key.Key_Up and self.selected_index > 0:
             self.selected_index -= 1
+            if self.selected_index < self.scroll_offset:
+                self.scroll_offset = self.selected_index
         elif event.key() == Qt.Key.Key_Down and self.selected_index < max_idx:
             self.selected_index += 1
-        vis = 310 // 30
-        if self.selected_index < self.scroll_offset:
-            self.scroll_offset = self.selected_index
-        elif self.selected_index >= self.scroll_offset + vis:
-            self.scroll_offset = self.selected_index - vis + 1
+            visible_count = 310 // 30
+            if self.selected_index >= self.scroll_offset + visible_count:
+                self.scroll_offset = self.selected_index - visible_count + 1
+        elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and self.songs_path:
+            self.backend.audio_controls.queue = self.songs_path
+            self.backend.audio_controls.song_pointer = self.selected_index
+            self.backend.start()
+            self.backend.audio_controls.is_paused = False
+            self.is_playing = True
         self.update_queue_display()
         self.update()
