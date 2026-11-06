@@ -47,7 +47,7 @@ TYPE = {"caption": 11, "small": 12, "body": 13, "subtitle": 15, "title": 22, "di
 WEIGHT = {"regular": 400, "medium": 500, "semibold": 650, "bold": 700, "heavy": 800}
 FONT_FAMILY = "Inter"
 SHADOWS = {"card": "0 8px 24px rgba(0, 0, 0, 0.18)", "dialog": "0 16px 48px rgba(0, 0, 0, 0.24)"}
-ANIMATION_MS = {"fast": 120, "normal": 180, "slow": 260}
+ANIMATION_MS = {"fast": 120, "normal": 180, "slow": 260, "page": 210, "artwork": 190, "hover": 210}
 
 
 def resolve_theme(theme: str) -> str:
@@ -97,4 +97,18 @@ def stylesheet(theme: str = "dark", density: str = "comfortable", accent: str | 
         QCheckBox {{ spacing: 8px; }}
         QCheckBox::indicator {{ width: 16px; height: 16px; border: 1px solid {p.border}; border-radius: 4px; background: {p.input}; }}
         QCheckBox::indicator:checked {{ background: {a}; border-color: {a}; }}
+        QToolButton:focus, QPushButton:focus, QLineEdit:focus, QComboBox:focus {{ outline: none; border-color: {a}; }}
+        QToolButton:disabled, QPushButton:disabled {{ color: {p.muted}; background: {p.surface}; }}
+        QProgressBar {{ background: {p.border}; border: 0; border-radius: 4px; text-align: center; min-height: 7px; max-height: 7px; }}
+        QProgressBar::chunk {{ background: {a}; border-radius: 4px; }}
+        QDialog#CommandPalette, QDialog#SleepTimerDialog {{ background: transparent; }}
+        QFrame#CommandPaletteSurface {{ background: {p.elevated}; border: 1px solid {p.border}; border-radius: 16px; }}
+        QLabel#CommandPaletteHeading {{ font-size: 16px; font-weight: 700; }}
+        QLabel#CommandPaletteHint {{ color: {p.muted}; font-size: 10px; font-weight: 700; letter-spacing: 1px; }}
+        QLineEdit#CommandPaletteInput {{ background: {p.input}; border: 1px solid {p.border}; border-radius: 10px; padding: 12px 14px; font-size: 14px; }}
+        QListWidget#CommandPaletteList {{ background: transparent; border: 0; outline: 0; padding: 2px; }}
+        QListWidget#CommandPaletteList::item {{ padding: 12px 10px; border-radius: 8px; min-height: 20px; }}
+        QListWidget#CommandPaletteList::item:selected {{ background: {p.selected}; color: {p.text}; }}
+        QLabel#CommandPaletteEmpty {{ color: {p.muted}; padding: 12px; }}
+        QFrame#SleepTimerDialog QSpinBox {{ min-height: 28px; }}
     """
