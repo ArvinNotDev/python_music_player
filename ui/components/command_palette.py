@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import (
+    QEasingCurve, QParallelAnimationGroup, QPropertyAnimation, QSize, Qt, Signal,
+)
 from PySide6.QtWidgets import (
-    QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget,
-    QListWidgetItem, QVBoxLayout, QWidget,
+    QDialog, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLineEdit,
+    QListWidget, QListWidgetItem, QVBoxLayout, QWidget,
 )
 
 
@@ -23,6 +25,10 @@ class CommandPalette(QDialog):
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.setModal(True)
         self.setFixedWidth(620)
+        self._opacity_effect = QGraphicsOpacityEffect(self)
+        self._opacity_effect.setOpacity(1.0)
+        self.setGraphicsEffect(self._opacity_effect)
+        self._show_animation: QParallelAnimationGroup | None = None
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -87,14 +93,41 @@ class CommandPalette(QDialog):
         parent = self.parentWidget()
         if parent is not None:
             center = parent.mapToGlobal(parent.rect().center())
-            self.move(
+            target = self.geometry()
+            target.moveTo(
                 center.x() - self.width() // 2,
                 max(18, center.y() - self.height() // 2 - 80),
             )
+            self.setGeometry(target.translated(0, -12))
+        else:
+            target = self.geometry()
+        if self._show_animation is not None:
+            self._show_animation.stop()
+            self._show_animation.deleteLater()
+        self._opacity_effect.setOpacity(0.0)
         self.show()
         self.raise_()
         self.activateWindow()
+        group = QParallelAnimationGroup(self)
+        fade = QPropertyAnimation(self._opacity_effect, b"opacity", group)
+        fade.setDuration(150)
+        fade.setStartValue(0.0)
+        fade.setEndValue(1.0)
+        fade.setEasingCurve(QEasingCurve.Type.OutCubic)
+        slide = QPropertyAnimation(self, b"geometry", group)
+        slide.setDuration(180)
+        slide.setStartValue(self.geometry())
+        slide.setEndValue(target)
+        slide.setEasingCurve(QEasingCurve.Type.OutCubic)
+        group.finished.connect(lambda current=group: self._finish_show_animation(current))
+        self._show_animation = group
+        group.start()
         self.search.setFocus()
+
+    def _finish_show_animation(self, animation: QParallelAnimationGroup) -> None:
+        if self._show_animation is animation:
+            self._show_animation = None
+        animation.deleteLater()
 
     def _filter_commands(self, query: str) -> None:
         normalized = query.strip().casefold()
