@@ -9,6 +9,7 @@ from PySide6.QtGui import QColor, QPainter, QPixmap
 from PySide6.QtWidgets import QStyledItemDelegate, QStyleOptionViewItem
 
 from ..components.common import ArtworkLabel, _ART_CACHE, _ArtworkTask
+from ..models import TrackTableModel
 from ..services import track_id
 
 
@@ -26,8 +27,9 @@ class ArtworkDelegate(QStyledItemDelegate):
         return QSize(54, 56)
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index) -> None:
-        model = index.model()
-        track = model.data(index, model.TrackRole)
+        # The view supplies a QSortFilterProxyModel index, not the source model.
+        # Custom roles belong to TrackTableModel and are forwarded by the proxy.
+        track = index.data(TrackTableModel.TrackRole)
         key = str(track_id(track))
         self._seen.add(key)
         if key not in _ART_CACHE and key not in self._pending and track:
