@@ -1,5 +1,7 @@
 # RW Player
 
+![RW Player application icon](assets/rw_player.svg)
+
 RW Player is a local desktop music player for organizing and playing a personal music library. It uses a persistent SQLite catalog, a PySide6 interface, and Qt Multimedia playback. Music stays in its existing folders; RW Player stores library records, playlists, history, settings, and cached artwork in the user's application-data directory.
 
 ## Features
