@@ -268,6 +268,22 @@ class MainWindowSmokeTest(unittest.TestCase):
         self.assertFalse(self.window.timer_button.property("active"))
         self.assertFalse(self.window.playback_controller.is_playing)
 
+    def test_side_drawers_open_and_close_cleanly_without_motion(self):
+        self.window.settings_service.set("appearance.animations", False)
+
+        self.assertEqual(self.window.sidebar.maximumWidth(), 232)
+        self.window._toggle_sidebar()
+        self.assertEqual(self.window.sidebar.maximumWidth(), 0)
+        self.window._toggle_sidebar()
+        self.assertEqual(self.window.sidebar.maximumWidth(), 232)
+
+        self.window._toggle_queue()
+        self.assertTrue(self.window.queue_panel.isVisible())
+        self.assertEqual(self.window.queue_panel.maximumWidth(), 420)
+        self.window._toggle_queue()
+        self.assertFalse(self.window.queue_panel.isVisible())
+        self.assertEqual(self.window.queue_panel.maximumWidth(), 0)
+
     def test_dialogs_can_be_constructed_offscreen(self):
         playlist_dialog = PlaylistSelectDialog([{"id": "p1", "name": "Mix"}])
         picker = TrackPickerDialog(TRACKS, Metadata())
