@@ -6,6 +6,7 @@ from PySide6.QtCore import QSignalBlocker, QSize, Qt, Signal
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QMenu, QSlider, QVBoxLayout, QWidget
 
 from ..components import ArtworkLabel, IconButton
+from ..components.visualizer import PlaybackVisualizer
 from ..services import display_duration, duration_seconds, track_title, value
 
 
@@ -125,6 +126,8 @@ class PlaybackBar(QFrame):
         self.volume = QSlider(Qt.Orientation.Horizontal)
         self.volume.setRange(0, 100)
         self.volume.setFixedWidth(96)
+        self.visualizer = PlaybackVisualizer()
+        right_row.addWidget(self.visualizer)
         self.queue = IconButton("queue", "Queue")
         self.lyrics = IconButton("lyrics", "Lyrics")
         right_row.addWidget(self.volume_icon)
@@ -176,6 +179,7 @@ class PlaybackBar(QFrame):
 
     def set_playback_state(self, playing: bool) -> None:
         self.playing = bool(playing)
+        self.visualizer.set_playing(self.playing)
         from ..components.icons import icon
         self.play_button.setIcon(icon("pause" if self.playing else "play", "#FFFFFF"))
         self.play_button.setToolTip("Pause" if self.playing else "Play")
@@ -234,9 +238,13 @@ class PlaybackBar(QFrame):
         from ..components.icons import icon
         return icon(name, self._accent_color if active else self._text_color)
 
+    def set_animations_enabled(self, enabled: bool) -> None:
+        self.visualizer.set_animations_enabled(enabled)
+
     def set_theme_colors(self, text_color: str, accent_color: str) -> None:
         self._text_color = text_color
         self._accent_color = accent_color
+        self.visualizer.set_color(accent_color)
         self.set_shuffle(self.shuffle)
         self.set_repeat_mode(self.repeat_mode)
         self.set_favorite(self.favorite.isChecked())
