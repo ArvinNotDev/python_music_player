@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import io
-import sys
+import os
 from pathlib import Path
 
 from PIL import Image
 from PySide6.QtCore import QBuffer, QIODevice, Qt
-from PySide6.QtGui import QImage, QPainter
+from PySide6.QtGui import QGuiApplication, QImage, QPainter
 from PySide6.QtSvg import QSvgRenderer
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,6 +17,9 @@ ICO_PATH = ROOT / "assets" / "rw_player.ico"
 
 
 def main() -> int:
+    # Rendering SVG text/fonts requires a Qt GUI application instance.
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    application = QGuiApplication([])
     renderer = QSvgRenderer(str(SVG_PATH))
     if not renderer.isValid():
         raise RuntimeError(f"Could not load application icon: {SVG_PATH}")
@@ -42,6 +45,7 @@ def main() -> int:
     with Image.open(io.BytesIO(png_bytes)) as source:
         source.save(ICO_PATH, format="ICO", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
     print(f"Generated {ICO_PATH}")
+    application.quit()
     return 0
 
 
