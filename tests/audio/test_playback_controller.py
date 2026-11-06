@@ -298,7 +298,7 @@ def test_audio_initialization_failure_is_reported_without_crashing(monkeypatch, 
     controller.shutdown()
 
 
-def test_unexpected_backend_stop_enters_error(controller_factory):
+def test_unexpected_backend_stop_enters_error_after_grace_period(controller_factory):
     controller, backend, tracks = controller_factory()
     controller.play_track(tracks[0])
     backend.start_playing()
@@ -306,4 +306,31 @@ def test_unexpected_backend_stop_enters_error(controller_factory):
     backend._media_status = "loadedmedia"
     backend.state_changed.emit("stopped")
 
+    # StoppedState alone is ambiguous until Qt reports the final media status.
+    assert controller.current_state == PlaybackState.PLAYING.value
+    assert controller._unexpected_stop_timer.isActive()
+
+    controller._confirm_unexpected_stop()
     assert controller.current_state == PlaybackState.ERROR.value
+
+
+def test_end_of_media_after_stopped_state_is_not_reported_as_unexpected(controller_factory):
+    controller, backend, tracks = controller_factory(("one", "two"))
+    controller.play_queue(tracks)
+    backend.start_playing()
+
+    # Reproduce Qt's alternate signal order: StoppedState arrives first.
+    backend._state = "stopped"
+    backend._media_status = "loadedmedia"
+    backend.state_changed.emit("stopped")
+    assert controller._unexpected_stop_timer.isActive()
+
+    backend._media_status = "endofmedia"
+    backend.media_status_changed.emit("endofmedia")
+    backend.end_of_media.emit()
+
+    assert controller.current_track is tracks[1]
+    assert controller.current_state == PlaybackState.LOADING.value
+    assert not controller._unexpected_stop_timer.isActive()
+    controller._confirm_unexpected_stop()
+    assert controller.current_state == PlaybackState.LOADING.value
