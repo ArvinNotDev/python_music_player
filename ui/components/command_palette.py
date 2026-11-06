@@ -1,4 +1,4 @@
-"""Fast, keyboard-first command launcher for Sonora."""
+"""Fast, keyboard-first command launcher for RW Player."""
 
 from __future__ import annotations
 
