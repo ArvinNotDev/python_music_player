@@ -1,4 +1,5 @@
 $ErrorActionPreference = "Stop"
 
 python -m pip install -e ".[dev]"
-python -m PyInstaller --clean --noconfirm packaging\sonora.spec
+python scripts\generate_app_icon.py
+python -m PyInstaller --clean --noconfirm packaging\rw_player.spec
