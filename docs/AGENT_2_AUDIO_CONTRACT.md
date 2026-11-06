@@ -32,6 +32,22 @@ References:
 - [Qt supported media formats](https://doc.qt.io/qt-6/videooverview.html)
 - [mpv installation notes](https://mpv.io/installation/)
 
+### Licensing and codec deployment
+
+PySide6/Qt for Python is distributed under LGPLv3/GPLv3 or commercial terms;
+the project must select a distribution model and comply with the applicable Qt
+terms. Qt's documented FFmpeg binaries use LGPL and other permissive component
+licenses and omit FFmpeg's optional GPL components, but a custom or replaced
+FFmpeg build may have different obligations. Redistributed Qt/FFmpeg binaries
+need their corresponding notices and deployment materials. Qt also cautions
+that codec patents may carry separate royalties that Qt licensing does not
+cover. Confirm the actual shipped binary configuration, notices, and required
+codec rights before publishing an installer.
+
+- [Qt for Python licensing](https://doc.qt.io/qtforpython-6/commercial/index.html)
+- [Qt Multimedia licenses and attributions](https://doc.qt.io/qt-6/qtmultimedia-index.html)
+- [FFmpeg license and legal considerations](https://ffmpeg.org/legal.html)
+
 ## Architecture
 
 ```mermaid
