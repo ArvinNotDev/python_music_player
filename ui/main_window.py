@@ -12,8 +12,8 @@ from PySide6.QtWidgets import (
     QMessageBox, QGraphicsOpacityEffect, QStackedWidget, QStatusBar, QVBoxLayout, QWidget,
 )
 
-from .components import ArtworkLabel, IconButton, SearchBox, Sidebar
-from .dialogs import LyricsEditorDialog, MetadataEditorDialog, PlaylistSelectDialog, TrackPickerDialog
+from .components import ArtworkLabel, CommandPalette, IconButton, SearchBox, Sidebar
+from .dialogs import LyricsEditorDialog, MetadataEditorDialog, PlaylistSelectDialog, SleepTimerDialog, TrackPickerDialog
 from .pages import (
     CollectionDetailPage, EntityGridPage, HomePage, LyricsPage, NowPlayingPage,
     PlaylistsPage, SearchPage, SettingsPage, SongsPage,
@@ -168,6 +168,12 @@ class MainWindow(QMainWindow):
         self._build_shell()
         self._build_pages()
         self._wire_actions()
+        self.command_palette = CommandPalette(self)
+        self.command_palette.commandActivated.connect(self._execute_palette_command)
+        self._sleep_remaining_seconds = 0
+        self._sleep_timer = QTimer(self)
+        self._sleep_timer.setInterval(1000)
+        self._sleep_timer.timeout.connect(self._on_sleep_timer_tick)
         self._connect_controller_signals()
         self._load_initial_preferences()
         self.home_page.set_loading(True)
@@ -372,6 +378,11 @@ class MainWindow(QMainWindow):
         for button in self.sidebar.findChildren(NavigationButton):
             button.setIcon(icon(button.icon_name, color))
         self.playback_bar.set_theme_colors(color, accent)
+        animations_enabled = bool(self._get_setting("appearance.animations", True))
+        ArtworkLabel.set_animations_enabled_for_all(animations_enabled)
+        from .components.cards import CollectionCard
+        CollectionCard.set_animations_enabled_for_all(animations_enabled)
+        self.playback_bar.set_animations_enabled(animations_enabled)
 
     def _load_library_async(self):
         task = _LibraryLoadTask(self.library_service, self.playlist_service, self.history_service)
@@ -441,7 +452,7 @@ class MainWindow(QMainWindow):
             effect = QGraphicsOpacityEffect(target)
             target.setGraphicsEffect(effect)
             animation = QPropertyAnimation(effect, b"opacity", self)
-            animation.setDuration(160)
+            animation.setDuration(210)
             animation.setStartValue(0.0)
             animation.setEndValue(1.0)
             animation.setEasingCurve(QEasingCurve.Type.OutCubic)
@@ -1086,6 +1097,120 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             self._status(f"Couldn't remove track: {exc}")
 
+    def _palette_commands(self) -> list[dict[str, str]]:
+        sleep_description = (
+            f"Remaining {self._format_sleep_remaining(self._sleep_remaining_seconds)}"
+            if self._sleep_timer.isActive() else "Pause playback after a chosen duration"
+        )
+        commands = [
+            ("page:home", "Go to Home", "Your listening dashboard", ""),
+            ("page:now_playing", "Open Now Playing", "Current track, artwork, and details", ""),
+            ("page:songs", "Browse Songs", "Search and manage your music library", ""),
+            ("page:albums", "Browse Albums", "Explore your album artwork", ""),
+            ("page:artists", "Browse Artists", "Explore artists in your library", ""),
+            ("page:recently_played", "Recently Played", "Return to your listening history", ""),
+            ("page:favorites", "Open Favorites", "Play your saved tracks", ""),
+            ("page:playlists", "Open Playlists", "Manage your personal collections", ""),
+            ("page:lyrics", "Open Lyrics", "View and edit the current track's lyrics", "Ctrl+L"),
+            ("page:settings", "Open Settings", "Appearance, library, and playback preferences", "Ctrl+,"),
+            ("action:play_pause", "Play / Pause", "Toggle the current playback state", "Space"),
+            ("action:next", "Next Track", "Skip to the next queued track", "Ctrl+Right"),
+            ("action:previous", "Previous Track", "Return to the previous track", "Ctrl+Left"),
+            ("action:shuffle", "Toggle Shuffle", "Enable or disable shuffled playback", ""),
+            ("action:repeat", "Cycle Repeat Mode", "Switch between off, all, and one", ""),
+            ("action:queue", "Toggle Queue", "Show or hide the upcoming tracks", "Ctrl+Q"),
+            ("action:search", "Focus Search", "Find tracks, albums, artists, and playlists", "Ctrl+F"),
+            ("action:add_music", "Add Music", "Import audio files into your library", "Ctrl+O"),
+            ("action:new_playlist", "Create Playlist", "Create a new music collection", ""),
+            ("action:sleep_timer", "Start Sleep Timer", sleep_description, ""),
+            ("action:cancel_sleep", "Cancel Sleep Timer", "Cancel the active session timer", ""),
+            ("action:favorite", "Toggle Current Favorite", "Add or remove the current track from Favorites", "Ctrl+D"),
+            ("action:rescan", "Rescan Music Library", "Scan your configured music folders", ""),
+            ("action:theme", "Toggle Light / Dark Theme", "Switch between light and dark appearance", ""),
+        ]
+        return [
+            {"id": command_id, "title": title, "description": description, "shortcut": shortcut}
+            for command_id, title, description, shortcut in commands
+        ]
+
+    def open_command_palette(self) -> None:
+        self.command_palette.show_palette(self._palette_commands())
+
+    @staticmethod
+    def _format_sleep_remaining(seconds: int) -> str:
+        seconds = max(0, int(seconds))
+        return f"{seconds // 60:02d}:{seconds % 60:02d}"
+
+    def _open_sleep_timer(self) -> None:
+        default_minutes = max(1, (self._sleep_remaining_seconds + 59) // 60)
+        dialog = SleepTimerDialog(self, default_minutes)
+        if not dialog.exec():
+            return
+        self._sleep_remaining_seconds = dialog.duration_minutes * 60
+        self._sleep_timer.start()
+        self._status(f"Sleep timer set for {dialog.duration_minutes} minutes.")
+
+    def _cancel_sleep_timer(self) -> None:
+        if not self._sleep_timer.isActive():
+            self._status("No sleep timer is active.")
+            return
+        self._sleep_timer.stop()
+        self._sleep_remaining_seconds = 0
+        self._status("Sleep timer cancelled.")
+
+    def _on_sleep_timer_tick(self) -> None:
+        if self._sleep_remaining_seconds <= 1:
+            self._sleep_timer.stop()
+            self._sleep_remaining_seconds = 0
+            pause = getattr(self.playback_controller, "pause", None)
+            if callable(pause):
+                self._controller_call("pause")
+            elif bool(value(self.playback_controller, "is_playing", default=False)):
+                self._controller_call("toggle_play_pause")
+            self._status("Sleep timer finished. Playback paused.")
+            return
+        self._sleep_remaining_seconds -= 1
+        if self._sleep_remaining_seconds <= 10:
+            self.statusBar().showMessage(
+                f"Sleep timer · {self._format_sleep_remaining(self._sleep_remaining_seconds)}"
+            )
+
+    def _execute_palette_command(self, command_id: str) -> None:
+        if command_id.startswith("page:"):
+            self.navigate(command_id.split(":", 1)[1])
+            return
+        actions = {
+            "action:play_pause": lambda: self._controller_call("toggle_play_pause"),
+            "action:next": lambda: self._controller_call("next"),
+            "action:previous": lambda: self._controller_call("previous"),
+            "action:queue": self._toggle_queue,
+            "action:search": self.global_search.setFocus,
+            "action:add_music": self._add_files_dialog,
+            "action:new_playlist": self._create_playlist,
+            "action:sleep_timer": self._open_sleep_timer,
+            "action:cancel_sleep": self._cancel_sleep_timer,
+            "action:favorite": self._toggle_favorite_current,
+            "action:rescan": self.settings_page._rescan,
+        }
+        if command_id == "action:shuffle":
+            enabled = bool(value(self.playback_controller, "shuffle_enabled", "shuffle", default=False))
+            self._controller_call("set_shuffle", not enabled)
+            self._status(f"Shuffle {'enabled' if not enabled else 'disabled'}.")
+        elif command_id == "action:repeat":
+            current = str(value(self.playback_controller, "repeat_mode", default="off")).lower()
+            modes = ("off", "all", "one")
+            next_mode = modes[(modes.index(current) + 1) % len(modes)] if current in modes else "off"
+            self._controller_call("set_repeat_mode", next_mode)
+            self._status(f"Repeat {next_mode}.")
+        elif command_id == "action:theme":
+            current = str(self._get_setting("appearance.theme", "dark"))
+            target = "light" if resolve_theme(current) == "dark" else "dark"
+            self.settings_page.theme.setCurrentText(target)
+        elif command_id in actions:
+            actions[command_id]()
+        else:
+            self._status("This command is not available.")
+
     def _install_shortcuts(self):
         self._shortcuts = []
         for sequence, callback in (
@@ -1099,6 +1224,9 @@ class MainWindow(QMainWindow):
             shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
             shortcut.activated.connect(lambda cb=callback: self._shortcut_dispatch(cb))
             self._shortcuts.append(shortcut)
+        self._command_shortcut = QShortcut(QKeySequence("Ctrl+K"), self)
+        self._command_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+        self._command_shortcut.activated.connect(self.open_command_palette)
 
     def _shortcut_dispatch(self, callback):
         focus = QApplication.focusWidget()
