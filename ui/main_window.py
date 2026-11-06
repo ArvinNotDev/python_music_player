@@ -210,7 +210,6 @@ class MainWindow(QMainWindow):
         top_layout.addWidget(self.global_search)
         self.command_button = IconButton("command", "Quick actions · Ctrl+K")
         self.timer_button = IconButton("timer", "Sleep timer")
-        self.timer_button.setCheckable(True)
         self.queue_button = IconButton("queue", "Show queue")
         self.queue_button.setCheckable(True)
         top_layout.addWidget(self.command_button)
@@ -379,7 +378,8 @@ class MainWindow(QMainWindow):
         color = PALETTES[resolved].text
         from .components.icons import icon
         for button in self.findChildren(IconButton):
-            active_color = "#FFFFFF" if button is self.playback_bar.play_button else accent if button.isChecked() else color
+            is_active = button.isChecked() or bool(button.property("active"))
+            active_color = "#FFFFFF" if button is self.playback_bar.play_button else accent if is_active else color
             button.setIcon(icon(button.icon_name, active_color))
         from .components.sidebar import NavigationButton
         for button in self.sidebar.findChildren(NavigationButton):
@@ -390,6 +390,17 @@ class MainWindow(QMainWindow):
         from .components.cards import CollectionCard
         CollectionCard.set_animations_enabled_for_all(animations_enabled)
         self.playback_bar.set_animations_enabled(animations_enabled)
+        self._set_timer_button_active(self._sleep_timer.isActive())
+
+    def _set_timer_button_active(self, active: bool) -> None:
+        self.timer_button.setProperty("active", bool(active))
+        theme = str(self._get_setting("appearance.theme", "dark"))
+        resolved = resolve_theme(theme)
+        color = self._art_accent if active else PALETTES[resolved].text
+        from .components.icons import icon
+        self.timer_button.setIcon(icon("timer", color))
+        self.timer_button.style().unpolish(self.timer_button)
+        self.timer_button.style().polish(self.timer_button)
 
     def _load_library_async(self):
         task = _LibraryLoadTask(self.library_service, self.playlist_service, self.history_service)
@@ -1155,7 +1166,7 @@ class MainWindow(QMainWindow):
             return
         self._sleep_remaining_seconds = dialog.duration_minutes * 60
         self._sleep_timer.start()
-        self.timer_button.setChecked(True)
+        self._set_timer_button_active(True)
         self.timer_button.setToolTip(
             f"Sleep timer · {self._format_sleep_remaining(self._sleep_remaining_seconds)} remaining"
         )
@@ -1167,7 +1178,7 @@ class MainWindow(QMainWindow):
             return
         self._sleep_timer.stop()
         self._sleep_remaining_seconds = 0
-        self.timer_button.setChecked(False)
+        self._set_timer_button_active(False)
         self.timer_button.setToolTip("Sleep timer")
         self._status("Sleep timer cancelled.")
 
@@ -1175,7 +1186,7 @@ class MainWindow(QMainWindow):
         if self._sleep_remaining_seconds <= 1:
             self._sleep_timer.stop()
             self._sleep_remaining_seconds = 0
-            self.timer_button.setChecked(False)
+            self._set_timer_button_active(False)
             self.timer_button.setToolTip("Sleep timer")
             pause = getattr(self.playback_controller, "pause", None)
             if callable(pause):
