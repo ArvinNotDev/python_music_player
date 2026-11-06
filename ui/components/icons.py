@@ -37,6 +37,8 @@ _PATHS = {
     "check": '<path d="m5 12 4 4L19 6"/>',
     "edit": '<path d="m4 16-.8 4.8L8 20l12-12-4-4zM13 7l4 4"/>',
     "trash": '<path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/>',
+    "timer": '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6M12 2v3"/>',
+    "command": '<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
 }
 
 
