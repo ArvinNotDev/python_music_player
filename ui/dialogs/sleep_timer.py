@@ -23,7 +23,7 @@ class SleepTimerDialog(QDialog):
         root.setContentsMargins(22, 22, 22, 18)
         root.setSpacing(14)
 
-        title = QLabel("Wind down with Sonora")
+        title = QLabel("Wind down with RW Player")
         title.setStyleSheet("font-size: 20px; font-weight: 750;")
         subtitle = QLabel("Playback will pause automatically when the timer ends.")
         subtitle.setProperty("role", "secondary")
