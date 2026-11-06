@@ -65,6 +65,7 @@ def stylesheet(theme: str = "dark", density: str = "comfortable", accent: str | 
         QWidget {{ color: {p.text}; font-family: Inter, 'Segoe UI', sans-serif; font-size: 13px; }}
         QMainWindow, QDialog {{ background: {p.background}; }}
         QFrame#Sidebar {{ background: {p.sidebar}; border-right: 1px solid {p.border}; }}
+        QWidget#QueuePanel {{ background: {p.sidebar}; border-left: 1px solid {p.border}; }}
         QFrame#PlaybackBar {{ background: {p.sidebar}; border-top: 1px solid {p.border}; }}
         QFrame#Surface, QFrame.surface {{ background: {p.surface}; border: 1px solid {p.border}; border-radius: 10px; }}
         QLabel[role="muted"] {{ color: {p.muted}; }}
