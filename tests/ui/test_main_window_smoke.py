@@ -7,7 +7,7 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QObject, QEventLoop, QTimer, Signal
+from PySide6.QtCore import QObject, QEventLoop, QPoint, QTimer, Signal
 from PySide6.QtWidgets import QApplication
 
 from ui.dialogs import LyricsEditorDialog, MetadataEditorDialog, PlaylistSelectDialog, TrackPickerDialog
@@ -232,6 +232,33 @@ class MainWindowSmokeTest(unittest.TestCase):
         self.assertEqual(self.window.playback_bar.seek.value(), 800)
         self.window.playback_bar._seek_released()
         self.assertAlmostEqual(self.window.playback_controller.position, 149.6, places=1)
+
+    def test_home_track_selection_opens_now_playing(self):
+        self.window.home_page.playRequested.emit(TRACKS[1])
+
+        self.assertEqual(self.window.playback_controller.current_track["id"], "t2")
+        self.assertEqual(self.window._active_page, "now_playing")
+        self.assertIs(self.window.now_playing_page.track, TRACKS[1])
+
+    def test_now_playing_cover_remains_centered_after_tab_changes(self):
+        self.window.settings_service.set("appearance.animations", False)
+        self.window.resize(1180, 760)
+        self.window.show()
+        self.app.processEvents()
+
+        for destination in ("songs", "albums", "now_playing", "settings", "home", "now_playing"):
+            self.window.navigate(destination)
+            self.app.processEvents()
+            row = self.window.now_playing_page.cover_row
+            cover = self.window.now_playing_page.cover
+            cover_left = cover.mapTo(row, QPoint(0, 0)).x()
+            cover_center = cover_left + cover.width() / 2
+            self.assertLessEqual(abs(cover_center - row.width() / 2), 1.0)
+            self.assertGreaterEqual(row.width(), cover.width())
+
+    def test_rw_player_window_branding_and_icon(self):
+        self.assertEqual(self.window.windowTitle(), "RW Player")
+        self.assertFalse(self.window.windowIcon().isNull())
 
     def test_navigation_and_search(self):
         self.window.navigate("albums")
