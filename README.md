@@ -7,13 +7,14 @@ Sonora is a local desktop music player for organizing and playing a personal mus
 - Scan and browse local music folders with song, album, artist, recently played, and recently added views.
 - Search songs, albums, artists, and playlists; browse album and artist collections.
 - Play, pause, resume, stop, seek, change volume, and mute through one playback controller.
-- Build a queue, add tracks to Play Next, remove or reorder upcoming tracks, and use shuffle and repeat off/all/one.
+- Build a queue, add tracks to Play Next, remove or reorder upcoming tracks, and cycle shuffle plus repeat off/all/one with a dedicated Repeat One icon.
 - Create, rename, delete, reorder, and persist playlists. Favorites is a built-in collection.
 - Read and edit supported audio tags, replace or remove embedded artwork, and display artwork from embedded tags or nearby cover files.
 - Read plain-text or timestamped LRC lyrics, follow timed lines during playback, and save lyrics as a sidecar file or embedded tag when the format supports it.
 - Persist appearance, library, playback, and lyrics preferences.
 - Launch a keyboard-first command palette with `Ctrl+K` for navigation and common playback/library actions.
 - Set a one-shot sleep timer to pause playback automatically, with quick 15/30/45/60/90-minute presets.
+- Open or collapse the left navigation and right queue drawers with smooth width transitions; page changes and menus use consistent motion and spacing.
 - Enjoy subtle cover-art reveal transitions, refined collection-card hover elevation, and a lightweight animated playback activity cue; motion follows the appearance animation preference.
 - Import legacy `playlists.json` data on startup. Successful imports are backed up, repeated launches do not import them again, and unresolved paths remain in playlists.
 
@@ -74,7 +75,7 @@ Press `Ctrl+K` to open the command palette. It searches navigation destinations 
 
 Choose **Start Sleep Timer** from the command palette to pause playback after 1–240 minutes. Presets are provided for common durations. The sleep timer is a session-only timer and does not modify or clear the playback queue.
 
-Artwork transitions and collection-card hover elevation are intentionally restrained. A compact animated activity cue indicates whether playback is active; it is a visual status indicator, not an audio-spectrum analyzer. The existing **Settings → Appearance → Motion** preference disables the added motion effects.
+Artwork transitions, collection-card hover elevation, page changes, and side-drawer motion are intentionally restrained. The left navigation uses **Ctrl+B** and the right queue uses **Ctrl+Q**; both remain available from the top toolbar. A compact animated activity cue indicates whether playback is active; it is a visual status indicator, not an audio-spectrum analyzer. The existing **Settings → Appearance → Motion** preference disables the added motion effects.
 
 ## Settings and user data
 
@@ -98,6 +99,7 @@ It contains `library.sqlite3`, the artwork cache, and rotating application logs 
 | Command palette | Ctrl + K |
 | Add music | Ctrl + O |
 | Toggle queue | Ctrl + Q |
+| Toggle navigation | Ctrl + B |
 | Lyrics | Ctrl + L |
 | Toggle current favorite | Ctrl + D |
 | Settings | Ctrl + , |
