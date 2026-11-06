@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from itertools import count
-from typing import Iterable
+from typing import Callable, Iterable
 
 from PySide6.QtCore import QObject, Signal
 
@@ -195,6 +195,24 @@ class PlaybackQueue(QObject):
         self._entries.insert(destination_index, entry)
         self._emit_changed()
         return True
+
+    def refresh_track(self, track: TrackLike, matches: Callable[[TrackLike, TrackLike], bool]) -> bool:
+        """Replace cached Track objects while preserving every queue entry ID."""
+        changed = False
+        for index, entry in enumerate(self._entries):
+            if matches(entry.track, track):
+                refreshed = QueueEntry(entry.entry_id, track)
+                self._entries[index] = refreshed
+                self._archive[entry.entry_id] = refreshed
+                if self._current is not None and self._current.entry_id == entry.entry_id:
+                    self._current = refreshed
+                changed = True
+        if self._current is not None and not self.contains(self._current.entry_id) and matches(self._current.track, track):
+            refreshed = QueueEntry(self._current.entry_id, track)
+            self._current = refreshed
+            self._archive[refreshed.entry_id] = refreshed
+            changed = True
+        return changed
 
     def clear(self) -> None:
         """Clear queued rows while keeping a selected current track playing."""

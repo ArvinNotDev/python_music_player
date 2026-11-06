@@ -32,18 +32,21 @@ class _ServiceTask(QRunnable):
             self.signals.done.emit(None, exc)
 
 
-def _save_lyrics_compatible(method, track, text: str, is_lrc: bool):
+def _save_lyrics_compatible(method, track, text: str, is_lrc: bool, storage: str):
     mode = "lrc" if is_lrc else "plain"
     try:
-        return method(track, text, mode=mode)
+        return method(track, text, mode=mode, storage=storage)
     except TypeError:
         try:
-            return method(track, text, is_lrc=is_lrc)
+            return method(track, text, mode=mode)
         except TypeError:
             try:
-                return method(track, text, is_lrc)
+                return method(track, text, is_lrc=is_lrc)
             except TypeError:
-                return method(track, text)
+                try:
+                    return method(track, text, is_lrc)
+                except TypeError:
+                    return method(track, text)
 
 
 class MetadataEditorDialog(QDialog):
@@ -141,7 +144,7 @@ class MetadataEditorDialog(QDialog):
             field.setEnabled(enabled)
 
     def _choose_artwork(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Choose artwork", "", "Images (*.png *.jpg *.jpeg *.webp *.bmp)")
+        path, _ = QFileDialog.getOpenFileName(self, "Choose artwork", "", "Images (*.png *.jpg *.jpeg *.webp *.gif)")
         if path:
             self._artwork_path = path
             self._remove_art = False
@@ -209,6 +212,13 @@ class LyricsEditorDialog(QDialog):
             self.mode.setCurrentIndex(1)
         top.addWidget(QLabel("Format"))
         top.addWidget(self.mode)
+        self.storage = QComboBox()
+        self.storage.addItem("Sidecar file", "sidecar")
+        self.storage.addItem("Embedded in audio file", "embedded")
+        default_storage = getattr(lyrics_service, "default_storage", "sidecar")
+        self.storage.setCurrentIndex(max(0, self.storage.findData(default_storage)))
+        top.addWidget(QLabel("Save as"))
+        top.addWidget(self.storage)
         top.addStretch()
         layout.addLayout(top)
         self.editor = QTextEdit()
@@ -247,7 +257,10 @@ class LyricsEditorDialog(QDialog):
             return
         self.save.setEnabled(False)
         self.status.setText("Saving lyrics…")
-        task = _ServiceTask(_save_lyrics_compatible, (method, self.track, self.editor.toPlainText(), self.mode.currentIndex() == 1))
+        task = _ServiceTask(_save_lyrics_compatible, (
+            method, self.track, self.editor.toPlainText(), self.mode.currentIndex() == 1,
+            str(self.storage.currentData()),
+        ))
         task.signals.done.connect(self._saved)
         self._pool.start(task)
 

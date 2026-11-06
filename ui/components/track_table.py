@@ -63,6 +63,14 @@ class TrackTable(QWidget):
     def tracks(self) -> list[Any]:
         return self.source_model.tracks()
 
+    def visible_tracks(self) -> list[Any]:
+        """Return the filtered, sorted rows currently shown in the table."""
+        return [
+            track
+            for row in range(self.proxy_model.rowCount())
+            if (track := self._track_from_index(self.proxy_model.index(row, 0))) is not None
+        ]
+
     def set_filter(self, query: str) -> None:
         self.proxy_model.setFilterFixedString(query)
 

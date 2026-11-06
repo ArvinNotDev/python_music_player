@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 
 from core.library.scanner import LibraryScanner
 from core.models import Track
@@ -73,12 +74,36 @@ def test_scanner_honors_cancellation_before_processing(database, tmp_path, monke
     assert result.scanned == 0
 
 
+def test_scanner_indexes_selected_audio_files_without_marking_other_tracks_missing(database, tmp_path, monkeypatch):
+    import core.library.scanner as scanner_module
+
+    selected = tmp_path / "selected.mp3"
+    selected.write_bytes(b"selected")
+    existing = tmp_path / "already-in-library.flac"
+    existing.write_bytes(b"existing")
+    tracks = TrackRepository(database)
+    old_track, _ = tracks.upsert(Track(None, str(existing), title="Existing"))
+    folders = LibraryFolderRepository(database)
+    monkeypatch.setattr(
+        scanner_module,
+        "read_metadata",
+        lambda path: Track(None, str(path), title=Path(path).stem),
+    )
+
+    result = LibraryScanner(tracks, folders).scan([selected])
+
+    assert result.added == 1 and result.scanned == 1 and result.errors == []
+    assert tracks.find_by_path(selected).title == "selected"
+    assert tracks.get(old_track.id).is_available
+
+
 def test_library_service_runs_scan_in_qt_worker(database, tmp_path, monkeypatch):
     import core.library.scanner as scanner_module
-    from PyQt6.QtCore import QCoreApplication, QEventLoop, QTimer
+    from PySide6.QtCore import QEventLoop, QTimer
+    from PySide6.QtWidgets import QApplication
     from core.library.library_service import LibraryService
 
-    app = QCoreApplication.instance() or QCoreApplication([])
+    app = QApplication.instance() or QApplication([])
     root = tmp_path / "Music"
     root.mkdir()
     (root / "song.aiff").write_bytes(b"aiff")

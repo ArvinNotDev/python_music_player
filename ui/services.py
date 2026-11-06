@@ -85,9 +85,25 @@ def track_title(track: Any) -> str:
 
 
 def display_duration(track: Any) -> str:
-    raw = value(track, "duration", "duration_seconds", default=0)
+    raw = value(track, "duration", "duration_seconds", default=None)
+    if raw is None:
+        try:
+            raw = float(value(track, "duration_ms", default=0) or 0) / 1000
+        except (TypeError, ValueError):
+            raw = 0
     try:
         seconds = int(float(raw or 0))
     except (TypeError, ValueError):
         return str(raw or "—")
     return f"{seconds // 60}:{seconds % 60:02d}" if seconds else "—"
+
+
+def duration_seconds(track: Any) -> float:
+    """Read either UI seconds or the canonical model's millisecond duration."""
+    raw = value(track, "duration", "duration_seconds", default=None)
+    if raw is None:
+        raw = float(value(track, "duration_ms", default=0) or 0) / 1000
+    try:
+        return max(0.0, float(raw or 0))
+    except (TypeError, ValueError):
+        return 0.0

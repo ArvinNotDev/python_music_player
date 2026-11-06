@@ -318,6 +318,16 @@ class PlaybackController(QObject):
         """Move a queue row to its final index without changing active entry."""
         self._queue.move(source_index, destination_index)
 
+    def refresh_track(self, track: TrackLike) -> bool:
+        """Update matching Track models without interrupting current playback."""
+        if not self._queue.refresh_track(track, self._same_track):
+            return False
+        current = self.current_track
+        if current is not None and self._same_track(current, track):
+            self.current_track_changed.emit(current)
+        self.queue_changed.emit(self._queue.tracks)
+        return True
+
     def clear_queue(self) -> None:
         """Remove upcoming rows while letting the selected track finish."""
         current_id = self._queue.current_entry_id

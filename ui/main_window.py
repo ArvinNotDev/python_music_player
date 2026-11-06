@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QGraphicsOpacityEffect, QStackedWidget, QStatusBar, QVBoxLayout, QWidget,
 )
 
-from .components import IconButton, SearchBox, Sidebar
+from .components import ArtworkLabel, IconButton, SearchBox, Sidebar
 from .dialogs import LyricsEditorDialog, MetadataEditorDialog, PlaylistSelectDialog, TrackPickerDialog
 from .pages import (
     CollectionDetailPage, EntityGridPage, HomePage, LyricsPage, NowPlayingPage,
@@ -393,7 +393,7 @@ class MainWindow(QMainWindow):
             if refreshed is not None:
                 signature = lambda track: tuple(str(value(track, key, default="")) for key in ("title", "artist", "album", "year", "genre"))
                 if signature(refreshed) != signature(previous_track):
-                    self._set_current_track(refreshed, force=True)
+                    self._refresh_current_track(refreshed)
                 else:
                     self._current_track = refreshed
         self.songs_page.set_tracks(self._tracks)
@@ -495,28 +495,23 @@ class MainWindow(QMainWindow):
             return
         try:
             method(track)
-            self._set_current_track(track)
-            self.playback_bar.set_playback_state(True)
         except Exception as exc:
             self._status(f"Playback failed: {exc}")
 
     def _play_from_table(self, table, track: Any):
         if not track:
             return
-        tracks = table.tracks()
+        visible_tracks = getattr(table, "visible_tracks", None)
+        tracks = visible_tracks() if callable(visible_tracks) else table.tracks()
         index = next((i for i, item in enumerate(tracks) if track_id(item) == track_id(track)), 0)
         play_queue = getattr(self.playback_controller, "play_queue", None)
         if callable(play_queue) and tracks:
             try:
                 play_queue(tracks, index)
-                self._set_current_track(track)
-                self.playback_bar.set_playback_state(True)
                 return
             except TypeError:
                 try:
                     play_queue(tracks, start_index=index)
-                    self._set_current_track(track)
-                    self.playback_bar.set_playback_state(True)
                     return
                 except TypeError:
                     pass
@@ -556,6 +551,16 @@ class MainWindow(QMainWindow):
         self._update_current_favorite()
         if changed and self._active_page == "lyrics":
             self._load_lyrics(track)
+
+    def _refresh_current_track(self, track):
+        """Refresh the displayed Track while preserving the controller's position."""
+        self._set_current_track(track, force=True)
+        position = value(self.playback_controller, "position", "position_seconds", default=0)
+        duration = value(self.playback_controller, "duration", "duration_seconds", default=0)
+        try:
+            self.playback_bar.set_position(float(position or 0), float(duration or 0))
+        except (TypeError, ValueError):
+            pass
 
     def _add_favorite(self, track):
         if not track:
@@ -712,7 +717,9 @@ class MainWindow(QMainWindow):
         self._play_table(self.playlists_page.table)
 
     def _play_table(self, table):
-        track = table.current_track() or (table.tracks()[0] if table.tracks() else None)
+        visible_tracks = getattr(table, "visible_tracks", None)
+        tracks = visible_tracks() if callable(visible_tracks) else table.tracks()
+        track = table.current_track() or (tracks[0] if tracks else None)
         if track:
             self._play_from_table(table, track)
 
@@ -726,8 +733,6 @@ class MainWindow(QMainWindow):
                     set_shuffle(True)
                     self.playback_bar.set_shuffle(True)
                     play_queue(tracks, 0)
-                    self._set_current_track(tracks[0])
-                    self.playback_bar.set_playback_state(True)
                 except Exception as exc:
                     self._status(f"Playback failed: {exc}")
 
@@ -773,8 +778,6 @@ class MainWindow(QMainWindow):
             if callable(method):
                 try:
                     method(tracks, 0)
-                    self._set_current_track(tracks[0])
-                    self.playback_bar.set_playback_state(True)
                 except Exception as exc:
                     self._status(f"Playback failed: {exc}")
 
@@ -809,9 +812,17 @@ class MainWindow(QMainWindow):
             return
         dialog = MetadataEditorDialog(track, self.metadata_service, self)
         if dialog.exec():
+            ArtworkLabel.invalidate(track)
             self._reload_collections()
             if track_id(track) == track_id(self._current_track):
-                self._set_current_track(track, force=True)
+                getter = getattr(self.library_service, "get_track", None)
+                refreshed = getter(track_id(track)) if callable(getter) else track
+                refresh = getattr(self.playback_controller, "refresh_track", None)
+                if callable(refresh) and refreshed is not None:
+                    if not refresh(refreshed):
+                        self._refresh_current_track(refreshed)
+                else:
+                    self._refresh_current_track(refreshed or track)
 
     def _load_lyrics(self, track):
         self.lyrics_page.set_track_lyrics(track, None)
@@ -932,8 +943,6 @@ class MainWindow(QMainWindow):
         if callable(method):
             try:
                 method(queue, index)
-                self._set_current_track(track)
-                self.playback_bar.set_playback_state(True)
             except Exception as exc:
                 self._status(f"Couldn't play queue item: {exc}")
         else:
@@ -952,9 +961,11 @@ class MainWindow(QMainWindow):
             "position_changed": self._on_position_changed,
             "duration_changed": self._on_duration_changed,
             "volume_changed": self.playback_bar.set_volume,
+            "muted_changed": self.playback_bar.set_muted,
             "shuffle_changed": self.playback_bar.set_shuffle,
             "repeat_mode_changed": self.playback_bar.set_repeat_mode,
             "queue_changed": self._on_queue_changed,
+            "error_occurred": self._on_playback_error,
         }
         for name, slot in mapping.items():
             signal = getattr(self.playback_controller, name, None) if self.playback_controller else None
@@ -973,7 +984,9 @@ class MainWindow(QMainWindow):
         playing = state.lower() in ("playing", "play", "started") if isinstance(state, str) else bool(state)
         self.playback_bar.set_playback_state(playing)
         self.playback_bar.set_position(float(value(controller, "position", "position_seconds", default=0) or 0), float(value(controller, "duration", "duration_seconds", default=0) or 0))
-        self.playback_bar.set_shuffle(bool(value(controller, "shuffle", "is_shuffle", default=False)))
+        self.playback_bar.set_volume(float(value(controller, "volume", default=0.7) or 0))
+        self.playback_bar.set_muted(bool(value(controller, "is_muted", "muted", default=False)))
+        self.playback_bar.set_shuffle(bool(value(controller, "shuffle", "shuffle_enabled", "is_shuffle", default=False)))
         repeat = value(controller, "repeat_mode", default=self._get_setting("playback.repeat", "off"))
         repeat = {0: "off", 1: "all", 2: "one"}.get(repeat, repeat)
         self.playback_bar.set_repeat_mode(str(repeat))
@@ -982,7 +995,10 @@ class MainWindow(QMainWindow):
     def _on_track_changed(self, track, *args):
         if isinstance(track, dict) and "track" in track:
             track = track["track"]
-        self._set_current_track(track)
+        if track_id(track) == track_id(self._current_track):
+            self._refresh_current_track(track)
+        else:
+            self._set_current_track(track)
 
     def _on_playback_state(self, state, *args):
         if isinstance(state, str):
@@ -1000,6 +1016,36 @@ class MainWindow(QMainWindow):
 
     def _on_queue_changed(self, *args):
         self._refresh_queue()
+
+    def _on_library_changed(self, event: str, payload: Any = None) -> None:
+        if event == "track_changed":
+            if payload is not None:
+                ArtworkLabel.invalidate(payload)
+                refresh = getattr(self.playback_controller, "refresh_track", None)
+                refreshed_queue = bool(refresh(payload)) if callable(refresh) else False
+                if track_id(payload) == track_id(self._current_track) and not refreshed_queue:
+                    self._refresh_current_track(payload)
+            self._reload_collections()
+        elif event == "scan_completed":
+            self._reload_collections()
+
+    def _on_scan_progress(self, current: int, total: int, path: str) -> None:
+        self._status(f"Scanning library · {current}/{total} · {path}")
+
+    def _on_scan_completed(self, result: Any) -> None:
+        errors = len(getattr(result, "errors", []))
+        message = (
+            f"Library scan complete · {getattr(result, 'added', 0)} added, "
+            f"{getattr(result, 'updated', 0)} updated, {errors} errors"
+        )
+        self.settings_page.scan_finished(message)
+        self._status(message)
+
+    def _on_scan_error(self, message: str) -> None:
+        self._status(f"Library scan error: {message}")
+
+    def _on_playback_error(self, message: str) -> None:
+        self._status(f"Playback error: {message}")
 
     def _toggle_favorite(self, track):
         if not track:

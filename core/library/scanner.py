@@ -35,6 +35,7 @@ class LibraryScanner:
         roots: list[Path] = []
         root_keys: set[str] = set()
         root_errors: set[str] = set()
+        explicit_files: list[Path] = []
         for raw_path in requested:
             root = Path(raw_path).expanduser().resolve(strict=False)
             key = normalize_path(root)
@@ -42,10 +43,15 @@ class LibraryScanner:
                 continue
             root_keys.add(key)
             if not root.exists():
-                self._error(result, on_error, f"Library folder is missing: {root}")
+                self._error(result, on_error, f"Library path is missing: {root}")
                 continue
             if not root.is_dir():
-                self._error(result, on_error, f"Library path is not a directory: {root}")
+                if root.is_file() and root.suffix.casefold() in AUDIO_EXTENSIONS:
+                    explicit_files.append(root)
+                elif root.is_file():
+                    self._error(result, on_error, f"Unsupported audio file: {root}")
+                else:
+                    self._error(result, on_error, f"Library path is not a directory or audio file: {root}")
                 continue
             if not os.access(root, os.R_OK):
                 self._error(result, on_error, f"Library folder is inaccessible: {root}")
@@ -54,6 +60,10 @@ class LibraryScanner:
             roots.append(root)
         paths_to_scan: dict[str, Path] = {}
         discovered: set[str] = set()
+        for path in explicit_files:
+            key = normalize_path(path)
+            discovered.add(key)
+            paths_to_scan.setdefault(key, path)
 
         def walk_error(root_key: str, root: Path, exc: OSError) -> None:
             root_errors.add(root_key)

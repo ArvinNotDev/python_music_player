@@ -125,6 +125,9 @@ class SettingsPage(ScrollPage):
         self.tray = QCheckBox("Show system tray icon")
         self.notifications = QCheckBox("Show playback notifications")
         self.media_keys = QCheckBox("Enable media keys")
+        for widget in (self.tray, self.notifications, self.media_keys):
+            widget.setEnabled(False)
+            widget.setToolTip("This feature is not available in this build.")
         self.content.addWidget(self.tray)
         self.content.addWidget(self.notifications)
         self.content.addWidget(self.media_keys)
@@ -162,9 +165,6 @@ class SettingsPage(ScrollPage):
         self.lyrics_autoscroll.toggled.connect(lambda value: self._set("lyrics.auto_scroll", value))
         self.large_lyrics.toggled.connect(lambda value: self._set("lyrics.large_text", value))
         self.large_lyrics.toggled.connect(self.lyricsDisplayChanged)
-        self.tray.toggled.connect(lambda value: self._set("desktop.tray", value))
-        self.notifications.toggled.connect(lambda value: self._set("desktop.notifications", value))
-        self.media_keys.toggled.connect(lambda value: self._set("desktop.media_keys", value))
         self._wire_optional_storage()
 
     def _get(self, key, default=None):
@@ -251,13 +251,29 @@ class SettingsPage(ScrollPage):
             return
         folders = [self.folders.item(i).text() for i in range(self.folders.count())]
         if folder not in folders:
+            register = getattr(self.library, "add_library_folder", None)
+            if callable(register):
+                try:
+                    folder = register(folder)
+                except Exception as exc:
+                    self.feedback.setText(f"Couldn't add library folder: {exc}")
+                    return
             folders.append(folder)
             self.folders.addItem(folder)
             self._set("library.folders", folders)
 
     def _remove_folder(self) -> None:
-        item = self.folders.takeItem(self.folders.currentRow())
+        row = self.folders.currentRow()
+        item = self.folders.item(row) if row >= 0 else None
         if item:
+            remove = getattr(self.library, "remove_library_folder", None)
+            if callable(remove):
+                try:
+                    remove(item.text())
+                except Exception as exc:
+                    self.feedback.setText(f"Couldn't remove library folder: {exc}")
+                    return
+            self.folders.takeItem(row)
             self._set("library.folders", [self.folders.item(i).text() for i in range(self.folders.count())])
 
     def _rescan(self) -> None:
@@ -265,6 +281,9 @@ class SettingsPage(ScrollPage):
             self.feedback.setText("Library scanning is unavailable.")
             return
         folders = [self.folders.item(i).text() for i in range(self.folders.count())]
+        if not folders:
+            self.feedback.setText("Add a library folder before scanning.")
+            return
         self.rescan.setEnabled(False)
         self.feedback.setText("Scanning library in the background…")
         task = _ScanTask(self.library, folders)
@@ -272,10 +291,16 @@ class SettingsPage(ScrollPage):
         self._pool.start(task)
 
     def _scan_done(self, result, error) -> None:
-        self.rescan.setEnabled(True)
-        message = f"Library scan failed: {error}" if error else "Library scan complete."
+        is_worker = callable(getattr(result, "isRunning", None))
+        if error or not is_worker:
+            self.rescan.setEnabled(True)
+        message = f"Library scan failed: {error}" if error else "Library scan started."
         self.feedback.setText(message)
         self.statusChanged.emit(message)
+
+    def scan_finished(self, message: str = "Library scan complete.") -> None:
+        self.rescan.setEnabled(True)
+        self.feedback.setText(message)
 
     def _preview_volume(self, value: int) -> None:
         if callable(getattr(self.playback, "set_volume", None)):

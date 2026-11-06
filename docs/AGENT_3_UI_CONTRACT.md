@@ -27,7 +27,7 @@ Import with `from ui.main_window import MainWindow`. Agent 4 should instantiate 
 
 ## Required service methods and data
 
-All records may be mappings or plain objects. Track records should expose an identifier (`id`, `track_id`, or a stable path), title, artist, album, numeric duration in seconds, and any available `date_added`, genre, year, album artist, track/disc number, composer, comment, and artwork fields.
+All records may be mappings or plain objects. UI-facing track records should expose an identifier (`id`, `track_id`, or a stable path), title, artist, album, duration in seconds, and any available `date_added`, genre, year, album artist, track/disc number, composer, comment, and artwork fields. The canonical domain `Track` stores `duration_ms`; the integrated adapter converts it to seconds at the UI boundary.
 
 | Injected object | Required methods used by the UI |
 |---|---|
@@ -105,7 +105,7 @@ The UI reads artwork and metadata in worker tasks. Injected services must create
 
 `ui/theme/tokens.py` defines dark/light palettes, system resolution, colors, typography, weights, spacing, radii, shadows, and animation durations. The stored theme setting is `appearance.theme` with values `dark`, `light`, or `system`; accent and density use `appearance.accent` and `appearance.density`. Theme changes apply through the application window stylesheet. SVG path icons are rendered with QtSvg at runtime; there are no external icon-font dependencies. Inter is preferred with Segoe UI/system fallback.
 
-PySide6 and its QtSvg module must be available in the runtime. The current root `requirements.txt` still belongs to the legacy PyQt6 bootstrap and was intentionally left unchanged under the task’s file ownership rules. Agent 4 must update the application dependency/bootstrap integration outside this UI patch before launching this window from the rebuilt app.
+PySide6 and QtSvg are declared in the integrated project dependencies. The application bootstrap injects a playback adapter that converts the audio controller millisecond values to the UI seconds-based contract.
 
 ## Keyboard shortcuts
 
@@ -145,11 +145,8 @@ Result for this branch: all UI modules compiled and **5 offscreen smoke tests pa
 - Open metadata editor; replace/remove artwork, save supported tags, and confirm service failures are understandable.
 - Test every shortcut with a table focused and with a text field/dialog focused.
 
-## Integration steps and known limits
+## Integrated state and known limits
 
-1. Agent 4 should import `MainWindow` from `ui.main_window`, construct it with the seven injected services, and remove the legacy PyQt6 window from the app bootstrap.
-2. Align the Agent 1 service methods and Agent 2 controller methods/signals with the contract above. If a method differs, add a small adapter at injection time rather than reaching into service internals from widgets.
-3. Add PySide6 to the final runtime/package dependency configuration and retain QtSvg support.
-4. Run the offscreen commands above after integration, then complete the manual visual acceptance checklist on a desktop session.
+The production bootstrap is in `app/bootstrap.py`. Its `ServiceContainer` adapts the canonical track-ID metadata and lyrics APIs to this UI's Track-object API, and adapts the playback controller's millisecond values to the UI's seconds values. Widgets continue to use injected services and do not open SQLite connections or access the audio backend.
 
-Known limits: system tray, notifications, media keys, export/reset, cache cleanup, playback speed, and crossfade require corresponding application-service/controller support. Unsupported optional storage and playback features are visibly disabled or omitted. The legacy `main.py`, `ui/ui.py`, and `ui/ui_manager.py` are intentionally untouched; the integrated bootstrap must stop importing that legacy PyQt6 interface.
+System tray, notifications, media keys, export/reset, cache cleanup, playback speed, and crossfade are not implemented in this build. Their unsupported controls are disabled or omitted. The legacy PyQt6/Pygame implementation has been removed; `main.py` starts the PySide6 application.

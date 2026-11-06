@@ -187,9 +187,7 @@ existing `main.py` was intentionally left untouched for the integration agent.
 ## Dependencies and limitations
 
 - Python 3.10 or newer.
-- PyQt6 is already in this repository's `requirements.txt`; PySide6 is also accepted by the
-  worker import shim. PyQt6 is selected first to match the existing application; the app
-  must use one Qt binding consistently and must not mix PyQt6 and PySide6 objects.
+- PySide6 is the single Qt binding used by the application and worker APIs.
 - `mutagen>=1.47` is required for metadata, embedded artwork, and embedded lyrics.
 - `Pillow>=9.1` is required for artwork validation, resizing, and thumbnail caching.
 - The repository dependency file was not changed because this task explicitly excludes root

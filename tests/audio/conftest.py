@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
-from PySide6.QtCore import QCoreApplication
+from PySide6.QtWidgets import QApplication
 
 from core.audio.audio_backend import AudioBackend
 from core.audio.audio_engine import AudioEngine
@@ -153,11 +153,11 @@ class FakeBackend(AudioBackend):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def qcore_application() -> QCoreApplication:
+def qcore_application() -> QApplication:
     """Keep a Qt application alive for QObject and Multimedia tests."""
-    app = QCoreApplication.instance()
+    app = QApplication.instance()
     if app is None:
-        app = QCoreApplication([])
+        app = QApplication([])
     return app
 
 

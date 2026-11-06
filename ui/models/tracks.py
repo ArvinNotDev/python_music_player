@@ -6,7 +6,7 @@ from typing import Any
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, QSortFilterProxyModel, Qt
 
-from ..services import display_duration, track_id, track_title, value
+from ..services import display_duration, duration_seconds, track_id, track_title, value
 
 
 class TrackTableModel(QAbstractTableModel):
@@ -80,7 +80,7 @@ class TrackTableModel(QAbstractTableModel):
             1: lambda item: track_title(item).casefold(),
             2: lambda item: str(value(item, "artist", "artists", default="")).casefold(),
             3: lambda item: str(value(item, "album", default="")).casefold(),
-            4: lambda item: float(value(item, "duration", "duration_seconds", default=0) or 0),
+            4: duration_seconds,
             5: lambda item: str(value(item, "date_added", "added_at", default="")).casefold(),
             6: lambda item: str(value(item, "genre", default="")).casefold(),
         }
@@ -107,10 +107,7 @@ class TrackFilterProxyModel(QSortFilterProxyModel):
         left_track = left.data(TrackTableModel.TrackRole)
         right_track = right.data(TrackTableModel.TrackRole)
         if left.column() == 4:
-            try:
-                return float(value(left_track, "duration", "duration_seconds", default=0) or 0) < float(value(right_track, "duration", "duration_seconds", default=0) or 0)
-            except (TypeError, ValueError):
-                pass
+            return duration_seconds(left_track) < duration_seconds(right_track)
         left_text = str(left.data(Qt.ItemDataRole.DisplayRole) or "").casefold()
         right_text = str(right.data(Qt.ItemDataRole.DisplayRole) or "").casefold()
         return left_text < right_text

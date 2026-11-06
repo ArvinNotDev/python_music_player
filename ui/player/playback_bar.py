@@ -2,18 +2,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QSignalBlocker, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QSignalBlocker, QSize, Qt, Signal
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QMenu, QSlider, QVBoxLayout, QWidget
 
 from ..components import ArtworkLabel, IconButton
-from ..services import display_duration, track_title, value
+from ..services import display_duration, duration_seconds, track_title, value
 
 
 def _seconds(track: Any) -> int:
-    try:
-        return max(0, int(float(value(track, "duration", "duration_seconds", default=0) or 0)))
-    except (TypeError, ValueError):
-        return 0
+    return int(duration_seconds(track))
 
 
 def _clock(seconds: float) -> str:
@@ -42,6 +39,7 @@ class PlaybackBar(QFrame):
         self.duration = 0.0
         self.shuffle = False
         self.repeat_mode = "off"
+        self.muted = False
         self._text_color = "#F4F5F8"
         self._accent_color = "#8B7CFF"
         self._dragging = False
@@ -148,9 +146,6 @@ class PlaybackBar(QFrame):
         self.lyrics.clicked.connect(self.lyricsRequested)
         self.favorite.clicked.connect(lambda: self.favoriteRequested.emit(self.track) if self.track else None)
         self.more.clicked.connect(self._show_more)
-        self._position_timer = QTimer(self)
-        self._position_timer.setInterval(500)
-        self._position_timer.timeout.connect(self._read_controller_position)
         self.volume.setValue(int(float(value(playback_controller, "volume", "current_volume", default=0.7)) * 100))
 
     def _call(self, method: str, *args):
@@ -184,10 +179,6 @@ class PlaybackBar(QFrame):
         from ..components.icons import icon
         self.play_button.setIcon(icon("pause" if self.playing else "play", "#FFFFFF"))
         self.play_button.setToolTip("Pause" if self.playing else "Play")
-        if self.playing:
-            self._position_timer.start()
-        else:
-            self._position_timer.stop()
 
     def set_position(self, seconds: float, duration: float | None = None) -> None:
         if duration is not None and duration > 0:
@@ -205,8 +196,13 @@ class PlaybackBar(QFrame):
         blocker = QSignalBlocker(self.volume)
         self.volume.setValue(max(0, min(100, round(float(volume) * 100))))
         del blocker
-        self.volume_icon.setIcon(self._icon("mute" if volume <= 0 else "volume"))
-        self.volume_icon.setToolTip("Unmute" if volume <= 0 else "Mute")
+        self.volume_icon.setIcon(self._icon("mute" if self.muted or volume <= 0 else "volume"))
+        self.volume_icon.setToolTip("Unmute" if self.muted else "Mute")
+
+    def set_muted(self, muted: bool) -> None:
+        self.muted = bool(muted)
+        self.volume_icon.setIcon(self._icon("mute" if self.muted else "volume"))
+        self.volume_icon.setToolTip("Unmute" if self.muted else "Mute")
 
     def set_shuffle(self, enabled: bool) -> None:
         self.shuffle = bool(enabled)
@@ -281,12 +277,16 @@ class PlaybackBar(QFrame):
             self.errorOccurred.emit(f"Couldn't change volume: {exc}")
 
     def _toggle_mute(self) -> None:
-        current = self.volume.value()
-        if current:
-            self._last_volume = current
-            self.volume.setValue(0)
+        method = getattr(self.controller, "set_muted", None) if self.controller else None
+        if callable(method):
+            self._call("set_muted", not self.muted)
         else:
-            self.volume.setValue(getattr(self, "_last_volume", 70))
+            current = self.volume.value()
+            if current:
+                self._last_volume = current
+                self.volume.setValue(0)
+            else:
+                self.volume.setValue(getattr(self, "_last_volume", 70))
 
     def _seek_started(self) -> None:
         self._dragging = True
@@ -299,16 +299,6 @@ class PlaybackBar(QFrame):
             self.set_position(seconds)
         else:
             self._dragging = False
-
-    def _read_controller_position(self) -> None:
-        for key in ("position", "position_seconds", "current_position"):
-            result = getattr(self.controller, key, None)
-            if result is not None:
-                try:
-                    self.set_position(result() if callable(result) else result)
-                except (TypeError, ValueError):
-                    pass
-                break
 
     def _show_more(self) -> None:
         if not self.track:

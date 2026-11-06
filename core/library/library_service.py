@@ -6,18 +6,7 @@ from pathlib import Path
 from threading import Event
 from typing import Any, Iterable, Mapping
 
-import sys
-
-if "PySide6.QtCore" in sys.modules and "PyQt6.QtCore" not in sys.modules:
-    from PySide6.QtCore import QObject, QThread, Signal
-else:
-    try:
-        from PyQt6.QtCore import QObject, QThread, pyqtSignal as Signal
-    except ImportError:  # Support a PySide6 front end without changing the data API.
-        try:
-            from PySide6.QtCore import QObject, QThread, Signal
-        except ImportError as exc:  # Qt is needed only for the async worker API.
-            raise RuntimeError("Library background scanning requires PyQt6 or PySide6") from exc
+from PySide6.QtCore import QObject, QThread, Signal
 
 from core.library.scanner import LibraryScanner
 from core.metadata.artwork_manager import ArtworkManager
