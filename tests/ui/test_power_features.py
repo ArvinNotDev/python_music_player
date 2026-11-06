@@ -5,6 +5,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
 from ui.components.command_palette import CommandPalette
@@ -35,12 +36,23 @@ def test_command_palette_filters_and_dispatches(qapp):
     ])
     palette.search.setText("synchronized")
     assert palette.list_widget.count() == 1
-    assert palette.list_widget.item(0).data(256) == "page:lyrics"
+    assert palette.list_widget.item(0).data(Qt.ItemDataRole.UserRole) == "page:lyrics"
 
     activated = []
     palette.commandActivated.connect(activated.append)
     palette._activate_current()
     assert activated == ["page:lyrics"]
+    palette.close()
+
+
+
+def test_command_palette_entry_animation_is_configured(qapp):
+    palette = CommandPalette()
+    palette.set_commands([{"id": "page:home", "title": "Home"}])
+    palette.show_palette([{"id": "page:home", "title": "Home"}])
+    qapp.processEvents()
+    assert palette.isVisible()
+    assert palette._show_animation is not None
     palette.close()
 
 
