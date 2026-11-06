@@ -74,7 +74,7 @@ def stylesheet(theme: str = "dark", density: str = "comfortable", accent: str | 
             padding: {pad}px 10px; selection-background-color: {p.selected};
         }}
         QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus, QSpinBox:focus {{ border-color: {a}; }}
-        QPushButton {{ background: {p.elevated}; border: 1px solid {p.border}; border-radius: 8px; padding: 8px 12px; }}
+        QPushButton {{ background: {p.elevated}; border: 1px solid {p.border}; border-radius: 8px; padding: 9px 14px; }}
         QPushButton:hover, QToolButton:hover {{ background: {p.selected}; }}
         QPushButton:pressed, QToolButton:pressed {{ background: {p.accent}; }}
         QPushButton[primary="true"] {{ background: {a}; border-color: {a}; color: #FFFFFF; font-weight: 600; }}
@@ -89,10 +89,13 @@ def stylesheet(theme: str = "dark", density: str = "comfortable", accent: str | 
         QSlider::sub-page:horizontal {{ background: {a}; border-radius: 2px; }}
         QSlider::handle:horizontal {{ background: {p.text}; width: 12px; height: 12px; margin: -5px 0; border-radius: 6px; }}
         QTableView {{ background: transparent; alternate-background-color: {p.sidebar}; border: 0; gridline-color: transparent; selection-background-color: {p.selected}; selection-color: {p.text}; }}
-        QHeaderView::section {{ background: transparent; color: {p.muted}; border: 0; border-bottom: 1px solid {p.border}; padding: 8px; font-weight: 600; }}
+        QHeaderView::section {{ background: transparent; color: {p.muted}; border: 0; border-bottom: 1px solid {p.border}; padding: 10px 8px; font-weight: 600; }}
+        QTableView::item {{ padding: 5px 8px; border-bottom: 1px solid {p.border}; }}
+        QTableView::item:selected {{ background: {p.selected}; color: {p.text}; }}
         QMenu {{ background: {p.elevated}; border: 1px solid {p.border}; padding: 5px; }}
-        QMenu::item {{ padding: 7px 24px; border-radius: 5px; }}
+        QMenu::item {{ padding: 9px 26px; margin: 2px 4px; border-radius: 7px; }}
         QMenu::item:selected {{ background: {p.selected}; }}
+        QMenu::separator {{ height: 1px; background: {p.border}; margin: 6px 12px; }}
         QToolTip {{ background: {p.elevated}; color: {p.text}; border: 1px solid {p.border}; padding: 5px 8px; }}
         QCheckBox {{ spacing: 8px; }}
         QCheckBox::indicator {{ width: 16px; height: 16px; border: 1px solid {p.border}; border-radius: 4px; background: {p.input}; }}
