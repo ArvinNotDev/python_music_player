@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import QAbstractTableModel, QMimeData, QModelIndex, Qt, Signal
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QTableView, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QTableView, QVBoxLayout, QWidget
 
 from ..delegates import ArtworkDelegate
 from ..services import display_duration, track_title, value
@@ -93,8 +93,11 @@ class QueuePanel(QWidget):
 
     def __init__(self, metadata_service=None, parent=None):
         super().__init__(parent)
-        self.setMinimumWidth(330)
+        self.setMinimumWidth(0)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(18, 20, 18, 16)
+        layout.setSpacing(14)
         top = QHBoxLayout()
         title = QLabel("Queue")
         title.setStyleSheet("font-size: 18px; font-weight: 700;")
@@ -119,6 +122,10 @@ class QueuePanel(QWidget):
         self.table.verticalHeader().setDefaultSectionSize(50)
         self.table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableView.SelectionMode.SingleSelection)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.setShowGrid(False)
+        self.table.setAlternatingRowColors(True)
+        self.table.setWordWrap(False)
         self.table.setColumnWidth(0, 22)
         self.table.setColumnWidth(1, 48)
         self.table.setColumnWidth(2, 145)
@@ -126,9 +133,13 @@ class QueuePanel(QWidget):
         self.table.setColumnWidth(4, 62)
         layout.addWidget(self.table, 1)
         actions = QHBoxLayout()
+        actions.setSpacing(8)
         self.up = QPushButton("Move up")
         self.down = QPushButton("Move down")
         self.remove = QPushButton("Remove")
+        for button in (self.up, self.down, self.remove):
+            button.setMinimumHeight(36)
+        self.remove.setProperty("primary", True)
         actions.addWidget(self.up)
         actions.addWidget(self.down)
         actions.addWidget(self.remove)
