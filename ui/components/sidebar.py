@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtWidgets import QFrame, QLabel, QScrollArea, QToolButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QLabel, QScrollArea, QSizePolicy, QToolButton, QVBoxLayout, QWidget
 
 from .icons import icon
 from ..services import value
@@ -33,10 +33,12 @@ class Sidebar(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("Sidebar")
-        self.setFixedWidth(232)
+        self.setMinimumWidth(0)
+        self.setMaximumWidth(232)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         root = QVBoxLayout(self)
         root.setContentsMargins(14, 20, 14, 16)
-        root.setSpacing(14)
+        root.setSpacing(16)
         brand_row = QWidget()
         b = QVBoxLayout(brand_row)
         b.setContentsMargins(8, 0, 0, 0)
@@ -55,7 +57,7 @@ class Sidebar(QFrame):
         body = QWidget()
         self.nav_layout = QVBoxLayout(body)
         self.nav_layout.setContentsMargins(0, 4, 2, 4)
-        self.nav_layout.setSpacing(4)
+        self.nav_layout.setSpacing(6)
         self.buttons: dict[str, NavigationButton] = {}
         self._section("DISCOVER")
         for name, label, icon_name in (
