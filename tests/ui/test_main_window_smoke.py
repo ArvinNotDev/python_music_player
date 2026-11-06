@@ -253,6 +253,21 @@ class MainWindowSmokeTest(unittest.TestCase):
         self.window._toggle_favorite(TRACKS[1])
         self.assertIn(TRACKS[1], self.window.playlist_service.contents["fav"])
 
+    def test_palette_toolbar_and_sleep_timer_are_wired(self):
+        self.assertTrue(hasattr(self.window, "command_button"))
+        self.assertTrue(hasattr(self.window, "timer_button"))
+        self.window._set_timer_button_active(True)
+        self.assertTrue(self.window.timer_button.property("active"))
+
+        self.window.playback_controller.is_playing = True
+        self.window._sleep_remaining_seconds = 1
+        self.window._sleep_timer.start()
+        self.window._on_sleep_timer_tick()
+
+        self.assertFalse(self.window._sleep_timer.isActive())
+        self.assertFalse(self.window.timer_button.property("active"))
+        self.assertFalse(self.window.playback_controller.is_playing)
+
     def test_dialogs_can_be_constructed_offscreen(self):
         playlist_dialog = PlaylistSelectDialog([{"id": "p1", "name": "Mix"}])
         picker = TrackPickerDialog(TRACKS, Metadata())
