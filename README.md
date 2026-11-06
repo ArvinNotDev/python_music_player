@@ -12,6 +12,9 @@ Sonora is a local desktop music player for organizing and playing a personal mus
 - Read and edit supported audio tags, replace or remove embedded artwork, and display artwork from embedded tags or nearby cover files.
 - Read plain-text or timestamped LRC lyrics, follow timed lines during playback, and save lyrics as a sidecar file or embedded tag when the format supports it.
 - Persist appearance, library, playback, and lyrics preferences.
+- Launch a keyboard-first command palette with `Ctrl+K` for navigation and common playback/library actions.
+- Set a one-shot sleep timer to pause playback automatically, with quick 15/30/45/60/90-minute presets.
+- Enjoy subtle cover-art reveal transitions, refined collection-card hover elevation, and a lightweight animated playback activity cue; motion follows the appearance animation preference.
 - Import legacy `playlists.json` data on startup. Successful imports are backed up, repeated launches do not import them again, and unresolved paths remain in playlists.
 
 ## Technology
@@ -65,6 +68,14 @@ Open a track's context menu or track details to edit supported tags. Metadata is
 
 The lyrics page reads plain text and LRC timestamps. Timed lines follow playback position; manual scrolling pauses automatic following briefly. Use **Edit lyrics** to select plain text or LRC and a sidecar or embedded destination. Unsupported embedded writes show an error and leave the editor open.
 
+## Quick actions and sleep timer
+
+Press `Ctrl+K` to open the command palette. It searches navigation destinations and common actions such as playback controls, queue visibility, library scanning, playlist creation, and theme switching. The palette is designed for keyboard use: type to filter, use the arrow keys to move through results, press Enter to run an action, or Escape to close it.
+
+Choose **Start Sleep Timer** from the command palette to pause playback after 1–240 minutes. Presets are provided for common durations. The sleep timer is a session-only timer and does not modify or clear the playback queue.
+
+Artwork transitions and collection-card hover elevation are intentionally restrained. A compact animated activity cue indicates whether playback is active; it is a visual status indicator, not an audio-spectrum analyzer. The existing **Settings → Appearance → Motion** preference disables the added motion effects.
+
 ## Settings and user data
 
 Settings currently cover theme, accent, density, animations, library folders and auto-scan, default volume, shuffle and repeat, and lyrics display/storage preferences. System tray, playback notifications, media keys, speed, crossfade, data export, reset, and artwork-cache cleanup are not available in this build; unsupported controls are disabled or omitted.
@@ -76,6 +87,20 @@ On Windows, the default application-data directory is:
 ```
 
 It contains `library.sqlite3`, the artwork cache, and rotating application logs under `logs`. macOS uses `~/Library/Application Support/PythonMusicPlayer`. Linux uses `$XDG_DATA_HOME/PythonMusicPlayer` or `~/.local/share/PythonMusicPlayer` when `XDG_DATA_HOME` is unset. Automated tests pass a temporary database path and do not scan or modify a personal music library.
+
+## Keyboard shortcuts
+
+| Action | Shortcut |
+|---|---|
+| Play / pause | Space |
+| Next / previous | Ctrl + Right / Ctrl + Left |
+| Search | Ctrl + F |
+| Command palette | Ctrl + K |
+| Add music | Ctrl + O |
+| Toggle queue | Ctrl + Q |
+| Lyrics | Ctrl + L |
+| Toggle current favorite | Ctrl + D |
+| Settings | Ctrl + , |
 
 ## Development and tests
 
