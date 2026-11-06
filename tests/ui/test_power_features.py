@@ -5,7 +5,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtCore import QRect, Qt
+from PySide6.QtCore import QPoint, QRect, Qt
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtWidgets import QApplication, QStyleOptionViewItem
 
@@ -124,6 +124,8 @@ def test_now_playing_metadata_card_stays_centered_and_wraps_long_text(qapp):
     assert page.info.maximumWidth() == 760
     assert page.info.width() <= viewport_width
     assert page.cover.width() == 340
+    cover_left = page.cover.mapTo(page.cover_row, QPoint(0, 0)).x()
+    assert abs(cover_left + page.cover.width() / 2 - page.cover_row.width() / 2) <= 1
     assert page.title.wordWrap()
     assert page.artist.wordWrap()
     assert page.album.wordWrap()
