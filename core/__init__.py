@@ -1,1 +1,1 @@
-"""Core domain and service interfaces for the music player."""
+"""Core domain and application services for the music player."""
