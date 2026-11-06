@@ -5,6 +5,8 @@ from __future__ import annotations
 import inspect
 from typing import Any, Callable
 
+from PySide6.QtGui import QIcon
+
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Qt, Signal, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
@@ -22,6 +24,7 @@ from .player.playback_bar import PlaybackBar
 from .player.queue_panel import QueuePanel
 from .services import track_id, value
 from .theme import PALETTES, resolve_theme, stylesheet
+from app.resources import resource_path
 
 
 def _as_list(result: Any) -> list[Any]:
@@ -164,7 +167,8 @@ class MainWindow(QMainWindow):
         self._search_timer.setInterval(180)
         self._search_timer.timeout.connect(lambda: self._run_search(self._last_query))
 
-        self.setWindowTitle("Sonora — Music Player")
+        self.setWindowTitle("RW Player")
+        self.setWindowIcon(QIcon(str(resource_path("assets", "rw_player.svg"))))
         self.setMinimumSize(1000, 680)
         self.resize(1440, 900)
         self.setStatusBar(QStatusBar(self))
@@ -294,7 +298,7 @@ class MainWindow(QMainWindow):
         self.command_button.clicked.connect(self.open_command_palette)
         self.timer_button.clicked.connect(self._open_sleep_timer)
 
-        self.home_page.playRequested.connect(self._play_track)
+        self.home_page.playRequested.connect(self._play_from_home)
         self.home_page.navigateRequested.connect(self._home_navigate)
         self.home_page.addFilesRequested.connect(self._add_files_dialog)
         self.songs_page.addFilesRequested.connect(self._add_files_dialog)
@@ -524,17 +528,24 @@ class MainWindow(QMainWindow):
     def _go_back_from_detail(self):
         self._navigate(self._return_page)
 
-    def _play_track(self, track: Any):
+    def _play_track(self, track: Any) -> bool:
         if not track:
-            return
+            return False
         method = getattr(self.playback_controller, "play_track", None)
         if not callable(method):
             self._status("The playback controller cannot play tracks.")
-            return
+            return False
         try:
-            method(track)
+            result = method(track)
+            return result is not False
         except Exception as exc:
             self._status(f"Playback failed: {exc}")
+            return False
+
+    def _play_from_home(self, track: Any) -> None:
+        """Start a Home-page selection and take the user to its Now Playing view."""
+        if self._play_track(track):
+            self.navigate("now_playing")
 
     def _play_from_table(self, table, track: Any):
         if not track:
@@ -585,7 +596,7 @@ class MainWindow(QMainWindow):
         self._current_track = track
         if changed:
             self.playback_bar.set_track(track)
-            self.now_playing_page.set_track(track)
+            self.now_playing_page.set_track(track, force=force)
         self._update_current_favorite()
         if changed and self._active_page == "lyrics":
             self._load_lyrics(track)
