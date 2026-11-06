@@ -234,4 +234,3 @@ class ArtworkManager:
                 candidate.unlink()
             except OSError:
                 pass
-

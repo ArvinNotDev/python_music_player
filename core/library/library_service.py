@@ -144,4 +144,3 @@ class LibraryService(QObject):
     @property
     def last_scan(self) -> ScanResult | None:
         return self._last_scan
-

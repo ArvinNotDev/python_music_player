@@ -105,4 +105,3 @@ class MetadataService:
             if self.on_track_changed:
                 self.on_track_changed(self.tracks.get(track_id))
             return artwork_path
-
