@@ -91,7 +91,7 @@ class PlaybackBar(QFrame):
         self.play_button.setStyleSheet("QToolButton { background: #8B7CFF; border-radius: 21px; } QToolButton:hover { background: #A095FF; }")
         self.play_button.setIconSize(QSize(20, 20))
         self.next_button = IconButton("next", "Next track")
-        self.repeat_button = IconButton("repeat", "Repeat off", checkable=True)
+        self.repeat_button = IconButton("repeat", "Repeat off")
         controls.addWidget(self.shuffle_button)
         controls.addWidget(self.previous_button)
         controls.addWidget(self.play_button)
@@ -216,13 +216,32 @@ class PlaybackBar(QFrame):
         self.shuffle_button.style().unpolish(self.shuffle_button)
         self.shuffle_button.style().polish(self.shuffle_button)
 
+    @staticmethod
+    def _normalize_repeat_mode(mode: Any) -> str:
+        raw = getattr(mode, "value", mode)
+        if isinstance(raw, int):
+            return {0: "off", 1: "all", 2: "one"}.get(raw, "off")
+        normalized = str(raw or "off").strip().lower()
+        normalized = normalized.rsplit(".", 1)[-1]
+        return {
+            "none": "off", "0": "off",
+            "1": "all", "repeat_all": "all",
+            "2": "one", "repeat_one": "one", "track": "one",
+        }.get(normalized, normalized if normalized in ("off", "all", "one") else "off")
+
     def set_repeat_mode(self, mode: str) -> None:
-        self.repeat_mode = str(mode or "off").lower()
-        active = self.repeat_mode not in ("off", "none", "0")
-        self.repeat_button.setChecked(active)
+        self.repeat_mode = self._normalize_repeat_mode(mode)
+        active = self.repeat_mode != "off"
+        icon_name = "repeat_one" if self.repeat_mode == "one" else "repeat"
+        tooltips = {
+            "off": "Repeat off",
+            "all": "Repeat all",
+            "one": "Repeat current track",
+        }
         self.repeat_button.setProperty("active", active)
-        self.repeat_button.setIcon(self._icon("repeat", active))
-        self.repeat_button.setToolTip(f"Repeat {self.repeat_mode}")
+        self.repeat_button.setIcon(self._icon(icon_name, active))
+        self.repeat_button.setToolTip(tooltips[self.repeat_mode])
+        self.repeat_button.setAccessibleName(tooltips[self.repeat_mode])
         self.repeat_button.style().unpolish(self.repeat_button)
         self.repeat_button.style().polish(self.repeat_button)
 
@@ -261,16 +280,20 @@ class PlaybackBar(QFrame):
         except Exception as exc:
             self.errorOccurred.emit(f"Couldn't change shuffle: {exc}")
 
-    def _cycle_repeat(self) -> None:
-        next_mode = {"off": "all", "none": "all", "all": "one", "one": "off"}.get(self.repeat_mode, "off")
+    def _cycle_repeat(self, _checked: bool = False) -> None:
+        controller_mode = value(self.controller, "repeat_mode", default=self.repeat_mode)
+        current = self._normalize_repeat_mode(controller_mode)
+        next_mode = {"off": "all", "all": "one", "one": "off"}[current]
         method = getattr(self.controller, "set_repeat_mode", None)
         if not callable(method):
             self.errorOccurred.emit("Repeat control is not supported by the playback controller.")
+            self.set_repeat_mode(current)
             return
         try:
             method(next_mode)
             self.set_repeat_mode(next_mode)
         except Exception as exc:
+            self.set_repeat_mode(current)
             self.errorOccurred.emit(f"Couldn't change repeat mode: {exc}")
 
     def _set_volume(self, value: int) -> None:
