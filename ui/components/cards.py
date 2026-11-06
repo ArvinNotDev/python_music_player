@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QPropertyAnimation, QEasingCurve
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QFrame, QGridLayout, QHBoxLayout, QLabel, QScrollArea, QSizePolicy, QVBoxLayout,
+    QFrame, QGraphicsDropShadowEffect, QGridLayout, QHBoxLayout, QLabel, QScrollArea, QSizePolicy, QVBoxLayout,
     QWidget,
 )
 
@@ -52,7 +53,49 @@ class CollectionCard(QFrame):
         caption.setToolTip(detail)
         caption.setText(caption.fontMetrics().elidedText(detail, Qt.TextElideMode.ElideRight, 164))
         col.addWidget(caption)
+        self._shadow_effect = QGraphicsDropShadowEffect(self)
+        self._shadow_effect.setBlurRadius(0)
+        self._shadow_effect.setOffset(0, 2)
+        self._shadow_effect.setColor(QColor(139, 124, 255, 72))
+        self.setGraphicsEffect(self._shadow_effect)
+        self._hover_animation = None
         self.setStyleSheet("QFrame#CollectionCard { background: transparent; border: 1px solid transparent; border-radius: 10px; } QFrame#CollectionCard:hover { background: rgba(130, 120, 255, 0.08); border-color: rgba(130, 120, 255, 0.16); }")
+
+    _animations_enabled = True
+
+    @classmethod
+    def set_animations_enabled_for_all(cls, enabled: bool) -> None:
+        cls._animations_enabled = bool(enabled)
+
+    def _animate_shadow(self, hovered: bool) -> None:
+        if not self._animations_enabled:
+            self._shadow_effect.setBlurRadius(0)
+            return
+        if self._hover_animation is not None:
+            self._hover_animation.stop()
+            self._hover_animation.deleteLater()
+            self._hover_animation = None
+        animation = QPropertyAnimation(self._shadow_effect, b"blurRadius", self)
+        animation.setDuration(210)
+        animation.setStartValue(self._shadow_effect.blurRadius())
+        animation.setEndValue(19.0 if hovered else 0.0)
+        animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        animation.finished.connect(lambda current=animation: self._finish_hover_animation(current))
+        self._hover_animation = animation
+        animation.start()
+
+    def _finish_hover_animation(self, animation: QPropertyAnimation) -> None:
+        if self._hover_animation is animation:
+            self._hover_animation = None
+        animation.deleteLater()
+
+    def enterEvent(self, event) -> None:
+        self._animate_shadow(True)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        self._animate_shadow(False)
+        super().leaveEvent(event)
 
     @staticmethod
     def _detail(item: Any, kind: str) -> str:
