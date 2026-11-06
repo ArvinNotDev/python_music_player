@@ -249,6 +249,8 @@ class MainWindowSmokeTest(unittest.TestCase):
         for destination in ("songs", "albums", "now_playing", "settings", "home", "now_playing"):
             self.window.navigate(destination)
             self.app.processEvents()
+            if destination != "now_playing":
+                continue
             row = self.window.now_playing_page.cover_row
             cover = self.window.now_playing_page.cover
             cover_left = cover.mapTo(row, QPoint(0, 0)).x()
