@@ -106,13 +106,13 @@ class _TestBackend(AudioBackend):
 def _build(qapp, database_path: Path, tmp_path: Path, *, candidates=None, migrate=True):
     backend = _TestBackend()
     runtime = build_runtime(
-        ["sonora-test"],
+        ["rw-player-test"],
         database_path=database_path,
         legacy_candidates=candidates,
         migrate_legacy=migrate,
         application=qapp,
         audio_engine=AudioEngine(backend),
-        log_path=tmp_path / "logs" / "sonora.log",
+        log_path=tmp_path / "logs" / "rw_player.log",
     )
     QThreadPool.globalInstance().waitForDone(5_000)
     qapp.processEvents()
@@ -139,7 +139,9 @@ def test_application_startup_empty_library_and_idempotent_legacy_migration(qapp,
 
     runtime, _ = _build(qapp, database, tmp_path, candidates=[legacy])
     try:
-        assert runtime.window.windowTitle().startswith("Sonora")
+        assert runtime.window.windowTitle() == "RW Player"
+        assert qapp.applicationDisplayName() == "RW Player"
+        assert not qapp.windowIcon().isNull()
         assert runtime.window.library_service is runtime.services.library
         assert runtime.window.playback_controller is runtime.services.playback_ui
         assert runtime.window._tracks == []
@@ -161,7 +163,7 @@ def test_application_startup_empty_library_and_idempotent_legacy_migration(qapp,
 
 def test_default_multimedia_backend_starts_without_audio_files(qapp, tmp_path):
     runtime = build_runtime(
-        ["sonora-smoke"],
+        ["rw-player-smoke"],
         database_path=tmp_path / "fresh.sqlite3",
         legacy_candidates=[],
         application=qapp,
