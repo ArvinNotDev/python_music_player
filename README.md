@@ -1,6 +1,6 @@
-# Sonora
+# RW Player
 
-Sonora is a local desktop music player for organizing and playing a personal music library. It uses a persistent SQLite catalog, a PySide6 interface, and Qt Multimedia playback. Music stays in its existing folders; Sonora stores library records, playlists, history, settings, and cached artwork in the user's application-data directory.
+RW Player is a local desktop music player for organizing and playing a personal music library. It uses a persistent SQLite catalog, a PySide6 interface, and Qt Multimedia playback. Music stays in its existing folders; RW Player stores library records, playlists, history, settings, and cached artwork in the user's application-data directory.
 
 ## Features
 
@@ -16,6 +16,7 @@ Sonora is a local desktop music player for organizing and playing a personal mus
 - Set a one-shot sleep timer to pause playback automatically, with quick 15/30/45/60/90-minute presets.
 - Open or collapse the left navigation and right queue drawers with smooth width transitions; page changes and menus use consistent motion and spacing.
 - Enjoy subtle cover-art reveal transitions, refined collection-card hover elevation, and a lightweight animated playback activity cue; motion follows the appearance animation preference.
+- Use the RW Player application icon in the window and packaged Windows executable.
 - Import legacy `playlists.json` data on startup. Successful imports are backed up, repeated launches do not import them again, and unresolved paths remain in playlists.
 
 ## Technology
@@ -55,13 +56,13 @@ python main.py
 python -m pip install -e ".[dev]"
 ```
 
-On first launch, Sonora opens with an empty library. Add a music folder in **Settings → Library**, then choose **Rescan library**; the Home and Songs pages can also add selected audio files directly. Enable automatic scanning in Settings to scan registered folders on later launches. Sonora reads files in place and does not move or modify audio during scanning.
+On first launch, RW Player opens with an empty library. Add a music folder in **Settings → Library**, then choose **Rescan library**; the Home and Songs pages can also add selected audio files directly. Enable automatic scanning in Settings to scan registered folders on later launches. RW Player reads files in place and does not move or modify audio during scanning.
 
 ## Library and playlists
 
 Library folders are stored in Settings and registered with the library database. Scans run in a background Qt worker and report progress and errors in the application. New and changed tracks appear after the scan completes. Missing files remain in the catalog with an unavailable status so playlist references are not silently dropped.
 
-Playlist membership and order are stored in SQLite. Favorites uses the built-in Favorites collection. If an older `playlists.json` file is found, Sonora merges its playlists and paths into the database, makes a timestamped backup after a successful import, and records a migration marker. Malformed data is left untouched and reported in the log.
+Playlist membership and order are stored in SQLite. Favorites uses the built-in Favorites collection. If an older `playlists.json` file is found, RW Player merges its playlists and paths into the database, makes a timestamped backup after a successful import, and records a migration marker. Malformed data is left untouched and reported in the log.
 
 ## Metadata, artwork, and lyrics
 
@@ -125,14 +126,14 @@ With Python and the project dependencies installed on Windows, run:
 scripts\build_windows.ps1
 ```
 
-The PyInstaller configuration builds an onedir application under `dist\Sonora`. PyInstaller's PySide6 hooks collect the Qt runtime and platform plugins; the spec includes Qt Multimedia and Qt SVG hidden imports. The resulting build must be checked on a clean Windows machine for codec availability, audio-device behavior, Qt/FFmpeg DLL deployment, and licensing notices before distribution. No signed installer or release is included in this repository.
+The build script generates a multi-resolution Windows icon from `assets/rw_player.svg`, then PyInstaller builds the onedir application under `dist\RW Player`. The same SVG is bundled for the application window icon. PyInstaller's PySide6 hooks collect the Qt runtime and platform plugins; the spec includes Qt Multimedia and Qt SVG hidden imports. The resulting build must be checked on a clean Windows machine for codec availability, audio-device behavior, Qt/FFmpeg DLL deployment, and licensing notices before distribution. No signed installer or release is included in this repository.
 
 Qt for Python and the multimedia runtime have their own license terms. Review the notices and redistribution requirements for the exact Qt and FFmpeg binaries included in a release, and check codec patent obligations for the distribution regions.
 
 ## Troubleshooting
 
-- **A track is listed but will not play:** scanner/tag support is separate from decoder support. Check whether the target Qt Multimedia build includes a decoder for the file and review the playback error shown by Sonora.
-- **No sound:** confirm that Windows has an available output device and that the system volume is not muted. Sonora uses the default output device and does not yet offer a device picker.
+- **A track is listed but will not play:** scanner/tag support is separate from decoder support. Check whether the target Qt Multimedia build includes a decoder for the file and review the playback error shown by RW Player.
+- **No sound:** confirm that Windows has an available output device and that the system volume is not muted. RW Player uses the default output device and does not yet offer a device picker.
 - **A tag edit fails:** tag write support depends on the audio container. The editor reports write errors; keep a backup of important source files before bulk external tag edits.
 - **Lyrics cannot be embedded:** save as a sidecar file, or use a container that supports embedded lyrics through Mutagen.
 - **A legacy playlist does not appear:** malformed JSON is intentionally left in place. Check the application log in the `logs` directory for the import error.
