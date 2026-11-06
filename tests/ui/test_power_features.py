@@ -5,7 +5,6 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtCore import Qt
 from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtWidgets import QApplication, QStyleOptionViewItem
@@ -56,8 +55,6 @@ def test_artwork_delegate_reads_track_role_through_proxy_model(qapp):
 
     widget.close()
     assert not image.isNull()
-
-
 
 
 class RepeatController:
@@ -159,8 +156,6 @@ def test_command_palette_filters_and_dispatches(qapp):
     palette._activate_current()
     assert activated == ["page:lyrics"]
     palette.close()
-
-
 
 def test_command_palette_entry_animation_is_configured(qapp):
     palette = CommandPalette()
