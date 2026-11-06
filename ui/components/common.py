@@ -6,10 +6,10 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QByteArray, QObject, QRunnable, QThreadPool, QSize, Qt, Signal
+from PySide6.QtCore import QByteArray, QObject, QRunnable, QThreadPool, QSize, Qt, Signal, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy, QToolButton,
+    QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy, QToolButton,
     QVBoxLayout, QWidget,
 )
 
@@ -168,11 +168,30 @@ class ArtworkLabel(QLabel):
         self.setText("♪")
         self._key = ""
         self._target_size = size
+        self._fade_effect = QGraphicsOpacityEffect(self)
+        self._fade_effect.setOpacity(1.0)
+        self.setGraphicsEffect(self._fade_effect)
+        self._fade_animation = None
         self._signals.loaded.connect(self._on_loaded)
         self._signals.failed.connect(self._on_failed)
 
+    _animations_enabled = True
+
+    @classmethod
+    def set_animations_enabled_for_all(cls, enabled: bool) -> None:
+        cls._animations_enabled = bool(enabled)
+
+    def _stop_fade(self) -> None:
+        animation = self._fade_animation
+        self._fade_animation = None
+        if animation is not None:
+            animation.stop()
+            animation.deleteLater()
+        self._fade_effect.setOpacity(1.0)
+
     def set_track(self, track: Any, metadata_service: Any = None) -> None:
         from ..services import track_id
+        self._stop_fade()
         key = str(track_id(track))
         self._key = key
         self.setPixmap(QPixmap())
@@ -211,6 +230,23 @@ class ArtworkLabel(QLabel):
         )
         self.setText("")
         self.setPixmap(pixmap)
+        if self._animations_enabled:
+            self._fade_effect.setOpacity(0.0)
+            animation = QPropertyAnimation(self._fade_effect, b"opacity", self)
+            animation.setDuration(190)
+            animation.setStartValue(0.0)
+            animation.setEndValue(1.0)
+            animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+            animation.finished.connect(lambda current=animation: self._finish_fade(current))
+            self._fade_animation = animation
+            animation.start()
+        else:
+            self._fade_effect.setOpacity(1.0)
+
+    def _finish_fade(self, animation: QPropertyAnimation) -> None:
+        if self._fade_animation is animation:
+            self._fade_animation = None
+        animation.deleteLater()
 
 
 def themed_color(name: str, theme: str = "dark") -> str:
