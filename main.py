@@ -1,7 +1,7 @@
-from ui.ui_manager import start_ui
+"""Sonora desktop application entry point."""
 
-def main():
-    start_ui()
+from app.application import run_application
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(run_application())
