@@ -7,7 +7,7 @@ import os
 import random
 from typing import Iterable
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, QTimer, Signal
 
 from .audio_engine import AudioEngine
 from .playback_queue import PlaybackQueue, QueueEntry
@@ -67,6 +67,13 @@ class PlaybackController(QObject):
         self._loading = False
         self._error_latched = False
         self._closed = False
+        # Qt Multimedia can report StoppedState just before EndOfMedia.
+        # Defer unexpected-stop classification so the terminal media status
+        # has a chance to arrive first.
+        self._unexpected_stop_timer = QTimer(self)
+        self._unexpected_stop_timer.setSingleShot(True)
+        self._unexpected_stop_timer.setInterval(120)
+        self._unexpected_stop_timer.timeout.connect(self._confirm_unexpected_stop)
 
         self._queue.changed.connect(self._on_queue_changed)
         self._engine.state_changed.connect(self._on_backend_state)
@@ -198,6 +205,7 @@ class PlaybackController(QObject):
         """Stop playback, retaining the current track and queue selection."""
         if self._closed:
             return
+        self._unexpected_stop_timer.stop()
         self._loading = False
         self._error_latched = False
         self._pending_seek = None
@@ -343,6 +351,7 @@ class PlaybackController(QObject):
         if self._closed:
             return
         self._closed = True
+        self._unexpected_stop_timer.stop()
         self._loading = False
         self._pending_seek = None
         self._engine.shutdown()
@@ -352,6 +361,7 @@ class PlaybackController(QObject):
     def _start_entry(self, entry: QueueEntry) -> None:
         if self._closed:
             return
+        self._unexpected_stop_timer.stop()
         previous_track = self._queue.current_track
         selected = self._queue.set_current(entry.entry_id)
         if selected is None:
@@ -470,18 +480,34 @@ class PlaybackController(QObject):
             return
         normalized = str(state).strip().lower()
         if normalized == "playing":
+            self._unexpected_stop_timer.stop()
             self._loading = False
             self._set_state(PlaybackState.PLAYING)
         elif normalized == "paused":
+            self._unexpected_stop_timer.stop()
             self._loading = False
             self._set_state(PlaybackState.PAUSED)
         elif normalized == "stopped":
-            if self._loading or self._engine.media_status == "endofmedia":
+            if self._loading or str(self._engine.media_status).strip().lower() == "endofmedia":
+                self._unexpected_stop_timer.stop()
                 return
             if self._state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-                self._fail("Playback stopped unexpectedly.")
+                self._unexpected_stop_timer.start()
             else:
+                self._unexpected_stop_timer.stop()
                 self._set_state(PlaybackState.STOPPED)
+
+    def _confirm_unexpected_stop(self) -> None:
+        """Raise a playback error only if StoppedState remains unexplained."""
+        if self._closed or self._error_latched or self._loading:
+            return
+        if self._state not in (PlaybackState.PLAYING, PlaybackState.PAUSED):
+            return
+        if str(self._engine.media_status).strip().lower() == "endofmedia":
+            return
+        if str(self._engine.state).strip().lower() != "stopped":
+            return
+        self._fail("Playback stopped unexpectedly.")
 
     def _on_queue_changed(self, tracks: object) -> None:
         self.queue_changed.emit(tracks)
@@ -509,9 +535,12 @@ class PlaybackController(QObject):
             self._apply_pending_seek()
 
     def _on_backend_media_status(self, status: str) -> None:
-        if status.strip().lower() == "invalidmedia":
+        normalized = status.strip().lower()
+        if normalized == "endofmedia":
+            self._unexpected_stop_timer.stop()
+        if normalized == "invalidmedia":
             self._fail("The selected file is invalid or its audio format is unsupported.")
-        elif status.strip().lower() in ("nomedia", "endofmedia"):
+        elif normalized in ("nomedia", "endofmedia"):
             self._pending_seek = None
 
     def _on_backend_error(self, message: str) -> None:
@@ -536,6 +565,7 @@ class PlaybackController(QObject):
         if self._error_latched or self._closed:
             return
         self._error_latched = True
+        self._unexpected_stop_timer.stop()
         self._loading = False
         self._pending_seek = None
         self._engine.stop()
