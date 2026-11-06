@@ -19,3 +19,10 @@ jobs:
       - run: python -m pytest -q
         env:
           QT_QPA_PLATFORM: offscreen
+      - name: Build RW Player Windows package
+        run: python -m PyInstaller --clean --noconfirm packaging\\rw_player.spec
+      - name: Verify RW Player executable
+        run: |
+          if (-not (Test-Path "dist\\RW Player\\RW Player.exe")) {
+            throw "RW Player executable was not created."
+          }
