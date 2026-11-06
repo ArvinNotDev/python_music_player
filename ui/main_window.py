@@ -941,6 +941,7 @@ class MainWindow(QMainWindow):
         self.sidebar_button.setProperty("active", self._sidebar_visible)
         self.sidebar_button.style().unpolish(self.sidebar_button)
         self.sidebar_button.style().polish(self.sidebar_button)
+        self.sidebar_button.setToolTip("Hide navigation" if self._sidebar_visible else "Show navigation")
         self._animate_horizontal_panel(
             self.sidebar, self._sidebar_visible, 232, "_sidebar_animation"
         )
@@ -951,6 +952,7 @@ class MainWindow(QMainWindow):
         self.queue_button.setProperty("active", self._queue_visible)
         self.queue_button.style().unpolish(self.queue_button)
         self.queue_button.style().polish(self.queue_button)
+        self.queue_button.setToolTip("Hide queue" if self._queue_visible else "Show queue")
         self._animate_horizontal_panel(
             self.queue_panel, self._queue_visible, 420, "_queue_animation",
             hide_when_closed=True,
@@ -1190,6 +1192,7 @@ class MainWindow(QMainWindow):
             ("action:shuffle", "Toggle Shuffle", "Enable or disable shuffled playback", ""),
             ("action:repeat", "Cycle Repeat Mode", "Switch between off, all, and one", ""),
             ("action:queue", "Toggle Queue", "Show or hide the upcoming tracks", "Ctrl+Q"),
+            ("action:sidebar", "Toggle Navigation", "Show or hide the left navigation panel", "Ctrl+B"),
             ("action:search", "Focus Search", "Find tracks, albums, artists, and playlists", "Ctrl+F"),
             ("action:add_music", "Add Music", "Import audio files into your library", "Ctrl+O"),
             ("action:new_playlist", "Create Playlist", "Create a new music collection", ""),
@@ -1266,6 +1269,7 @@ class MainWindow(QMainWindow):
             "action:next": lambda: self._controller_call("next"),
             "action:previous": lambda: self._controller_call("previous"),
             "action:queue": self._toggle_queue,
+            "action:sidebar": self._toggle_sidebar,
             "action:search": self.global_search.setFocus,
             "action:add_music": self._add_files_dialog,
             "action:new_playlist": self._create_playlist,
@@ -1299,6 +1303,7 @@ class MainWindow(QMainWindow):
             ("Space", self._shortcut_play), ("Ctrl+Right", lambda: self._controller_call("next")),
             ("Ctrl+Left", lambda: self._controller_call("previous")), ("Ctrl+F", self.global_search.setFocus),
             ("Ctrl+O", self._add_files_dialog), ("Ctrl+Q", self._toggle_queue),
+            ("Ctrl+B", self._toggle_sidebar),
             ("Ctrl+L", lambda: self.navigate("lyrics")), ("Ctrl+D", self._toggle_favorite_current),
             ("Ctrl+,", lambda: self.navigate("settings")),
         ):
