@@ -56,13 +56,13 @@ class QueueModel(QAbstractTableModel):
         return base | Qt.ItemFlag.ItemIsDropEnabled
 
     def mimeTypes(self):
-        return ["application/x-sonora-queue-row"]
+        return ["application/x-rw-player-queue-row"]
 
     def mimeData(self, indexes):
         data = QMimeData()
         rows = sorted({index.row() for index in indexes if index.isValid()})
         if rows:
-            data.setData("application/x-sonora-queue-row", str(rows[0]).encode("ascii"))
+            data.setData("application/x-rw-player-queue-row", str(rows[0]).encode("ascii"))
         return data
 
     def supportedDropActions(self):
@@ -71,10 +71,10 @@ class QueueModel(QAbstractTableModel):
     def dropMimeData(self, data, action, row, column, parent):
         if action == Qt.DropAction.IgnoreAction:
             return True
-        if not data.hasFormat("application/x-sonora-queue-row"):
+        if not data.hasFormat("application/x-rw-player-queue-row"):
             return False
         try:
-            source = int(bytes(data.data("application/x-sonora-queue-row")).decode("ascii"))
+            source = int(bytes(data.data("application/x-rw-player-queue-row")).decode("ascii"))
         except (TypeError, ValueError):
             return False
         target = row if row >= 0 else parent.row()
