@@ -10,10 +10,12 @@ from pathlib import Path
 from typing import Sequence
 
 from PySide6.QtCore import QThreadPool
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from database.database_manager import app_data_dir
 from .service_container import ServiceContainer
+from .resources import resource_path
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +25,15 @@ def create_qapplication(argv: Sequence[str] | None = None) -> QApplication:
     if application is None:
         application = QApplication(list(argv) if argv is not None else sys.argv[:1])
     application.setOrganizationName("ArvinNotDev")
-    application.setApplicationName("PythonMusicPlayer")
-    application.setApplicationDisplayName("Sonora")
+    application.setApplicationName("RWPlayer")
+    application.setApplicationDisplayName("RW Player")
+    application.setWindowIcon(QIcon(str(resource_path("assets", "rw_player.svg"))))
     application.setQuitOnLastWindowClosed(True)
     return application
 
 
 def configure_logging(log_path: str | Path | None = None) -> Path:
-    selected_path = Path(log_path) if log_path is not None else app_data_dir() / "logs" / "sonora.log"
+    selected_path = Path(log_path) if log_path is not None else app_data_dir() / "logs" / "rw_player.log"
     selected_path.parent.mkdir(parents=True, exist_ok=True)
     root = logging.getLogger()
     root.setLevel(logging.INFO)
@@ -94,8 +97,9 @@ def build_runtime(
     if QApplication.instance() is not app:
         raise RuntimeError("The supplied application is not the active QApplication")
     app.setOrganizationName("ArvinNotDev")
-    app.setApplicationName("PythonMusicPlayer")
-    app.setApplicationDisplayName("Sonora")
+    app.setApplicationName("RWPlayer")
+    app.setApplicationDisplayName("RW Player")
+    app.setWindowIcon(QIcon(str(resource_path("assets", "rw_player.svg"))))
     configure_logging(log_path)
 
     services = ServiceContainer(database_path, parent=app, audio_engine=audio_engine)
