@@ -6,7 +6,13 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QRect, Qt
+from PySide6.QtGui import QImage, QPainter
+from PySide6.QtWidgets import QApplication, QStyleOptionViewItem
+
+from ui.components.track_table import TrackTable
+from ui.delegates.artwork import ArtworkDelegate
+from ui.models import TrackTableModel
 
 from ui.components.command_palette import CommandPalette
 from ui.components.visualizer import PlaybackVisualizer
@@ -16,6 +22,38 @@ from ui.dialogs.sleep_timer import SleepTimerDialog
 @pytest.fixture(scope="module")
 def qapp():
     return QApplication.instance() or QApplication([])
+
+
+def test_artwork_delegate_reads_track_role_through_proxy_model(qapp):
+    track = {
+        "id": "proxy-track-1",
+        "title": "Proxy artwork test",
+        "artist": "Test artist",
+        "album": "Test album",
+        "duration": 120,
+    }
+    widget = TrackTable([track], metadata_service=None, context_actions=False)
+    widget.resize(640, 300)
+    widget.show()
+    qapp.processEvents()
+
+    proxy = widget.proxy_model
+    index = proxy.index(0, 0)
+    assert index.isValid()
+    assert index.data(TrackTableModel.TrackRole) == track
+
+    delegate = widget.table.itemDelegateForColumn(0)
+    assert isinstance(delegate, ArtworkDelegate)
+    image = QImage(64, 64, QImage.Format.Format_ARGB32)
+    image.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(image)
+    option = QStyleOptionViewItem()
+    option.rect = QRect(0, 0, 58, 58)
+    delegate.paint(painter, option, index)
+    painter.end()
+
+    widget.close()
+    assert not image.isNull()
 
 
 def test_command_palette_filters_and_dispatches(qapp):
