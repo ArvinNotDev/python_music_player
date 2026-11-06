@@ -278,10 +278,10 @@ class MainWindowSmokeTest(unittest.TestCase):
         self.assertEqual(self.window.sidebar.maximumWidth(), 232)
 
         self.window._toggle_queue()
-        self.assertTrue(self.window.queue_panel.isVisible())
+        self.assertFalse(self.window.queue_panel.isHidden())
         self.assertEqual(self.window.queue_panel.maximumWidth(), 420)
         self.window._toggle_queue()
-        self.assertFalse(self.window.queue_panel.isVisible())
+        self.assertTrue(self.window.queue_panel.isHidden())
         self.assertEqual(self.window.queue_panel.maximumWidth(), 0)
 
     def test_dialogs_can_be_constructed_offscreen(self):
