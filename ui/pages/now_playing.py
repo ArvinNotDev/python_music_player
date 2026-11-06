@@ -10,6 +10,28 @@ from ..services import display_duration, track_id, track_title, value
 from .base import ScrollPage
 
 
+class CenteredArtworkRow(QWidget):
+    """Full-width row that centers the cover using its actual current geometry."""
+
+    def __init__(self, artwork: ArtworkLabel, parent=None):
+        super().__init__(parent)
+        self.artwork = artwork
+        self.artwork.setParent(self)
+        self.setMinimumWidth(0)
+        self.setFixedHeight(artwork.height())
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._center_artwork()
+
+    def _center_artwork(self) -> None:
+        x = max(0, (self.width() - self.artwork.width()) // 2)
+        y = max(0, (self.height() - self.artwork.height()) // 2)
+        self.artwork.move(x, y)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._center_artwork()
+
+
 class NowPlayingPage(ScrollPage):
     favoriteRequested = Signal(object)
     playlistRequested = Signal(object)
@@ -27,15 +49,7 @@ class NowPlayingPage(ScrollPage):
         self.cover = ArtworkLabel(340)
         self.cover.setStyleSheet("background: #242630; border-radius: 16px; color: #A095FF; font-size: 72px;")
         self.cover.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.cover_row = QWidget()
-        self.cover_row.setMinimumWidth(0)
-        self.cover_row.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        cover_layout = QHBoxLayout(self.cover_row)
-        cover_layout.setContentsMargins(0, 0, 0, 0)
-        cover_layout.setSpacing(0)
-        cover_layout.addStretch(1)
-        cover_layout.addWidget(self.cover, 0, Qt.AlignmentFlag.AlignCenter)
-        cover_layout.addStretch(1)
+        self.cover_row = CenteredArtworkRow(self.cover)
         self.content.addWidget(self.cover_row)
         self.title = QLabel("Nothing playing")
         self.title.setWordWrap(True)
