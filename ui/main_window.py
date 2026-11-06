@@ -208,8 +208,13 @@ class MainWindow(QMainWindow):
         top_layout.addWidget(self.page_heading)
         top_layout.addStretch(1)
         top_layout.addWidget(self.global_search)
+        self.command_button = IconButton("command", "Quick actions · Ctrl+K")
+        self.timer_button = IconButton("timer", "Sleep timer")
+        self.timer_button.setCheckable(True)
         self.queue_button = IconButton("queue", "Show queue")
         self.queue_button.setCheckable(True)
+        top_layout.addWidget(self.command_button)
+        top_layout.addWidget(self.timer_button)
         top_layout.addWidget(self.queue_button)
         main_col.addWidget(top)
         self.page_stack = QStackedWidget()
@@ -278,6 +283,8 @@ class MainWindow(QMainWindow):
         self.global_search.textChanged.connect(self._search_text_changed)
         self.global_search.returnPressed.connect(lambda: self.navigate("search"))
         self.queue_button.clicked.connect(self._toggle_queue)
+        self.command_button.clicked.connect(self.open_command_palette)
+        self.timer_button.clicked.connect(self._open_sleep_timer)
 
         self.home_page.playRequested.connect(self._play_track)
         self.home_page.navigateRequested.connect(self._home_navigate)
@@ -1148,6 +1155,10 @@ class MainWindow(QMainWindow):
             return
         self._sleep_remaining_seconds = dialog.duration_minutes * 60
         self._sleep_timer.start()
+        self.timer_button.setChecked(True)
+        self.timer_button.setToolTip(
+            f"Sleep timer · {self._format_sleep_remaining(self._sleep_remaining_seconds)} remaining"
+        )
         self._status(f"Sleep timer set for {dialog.duration_minutes} minutes.")
 
     def _cancel_sleep_timer(self) -> None:
@@ -1156,12 +1167,16 @@ class MainWindow(QMainWindow):
             return
         self._sleep_timer.stop()
         self._sleep_remaining_seconds = 0
+        self.timer_button.setChecked(False)
+        self.timer_button.setToolTip("Sleep timer")
         self._status("Sleep timer cancelled.")
 
     def _on_sleep_timer_tick(self) -> None:
         if self._sleep_remaining_seconds <= 1:
             self._sleep_timer.stop()
             self._sleep_remaining_seconds = 0
+            self.timer_button.setChecked(False)
+            self.timer_button.setToolTip("Sleep timer")
             pause = getattr(self.playback_controller, "pause", None)
             if callable(pause):
                 self._controller_call("pause")
@@ -1170,6 +1185,9 @@ class MainWindow(QMainWindow):
             self._status("Sleep timer finished. Playback paused.")
             return
         self._sleep_remaining_seconds -= 1
+        self.timer_button.setToolTip(
+            f"Sleep timer · {self._format_sleep_remaining(self._sleep_remaining_seconds)} remaining"
+        )
         if self._sleep_remaining_seconds <= 10:
             self.statusBar().showMessage(
                 f"Sleep timer · {self._format_sleep_remaining(self._sleep_remaining_seconds)}"
