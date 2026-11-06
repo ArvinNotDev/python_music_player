@@ -1,7 +1,7 @@
 # PyInstaller onedir build for RW Player.
 from pathlib import Path
 
-root = Path(SPECPATH).resolve().parent.parent
+root = Path(SPECPATH).resolve().parent
 hiddenimports = ["PySide6.QtMultimedia", "PySide6.QtSvg", "mutagen", "PIL"]
 icon_path = root / "assets" / "rw_player.ico"
 
