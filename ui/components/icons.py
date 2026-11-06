@@ -28,6 +28,8 @@ _PATHS = {
     "more": '<circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/>',
     "shuffle": '<path d="m18 14 3 3-3 3M3 7h2c5 0 7 10 12 10h4M18 4l3 3-3 3M3 17h2c2 0 3.4-1.5 4.6-3.3M14.4 10.3C15.2 8.6 16 7 17 7h4"/>',
     "repeat": '<path d="m17 2 4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4m14-3v2a3 3 0 0 1-3 3H3"/>',
+    "repeat_one": '<path d="m17 2 4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4m14-3v2a3 3 0 0 1-3 3H3"/><path d="M10.5 10.2 12 9v6m-1.8 0h3.6"/>',
+    "menu": '<path d="M4 6h16M4 12h16M4 18h16"/>',
     "volume": '<path d="M4 10v4h4l5 4V6l-5 4zM17 9a5 5 0 0 1 0 6m2-9a9 9 0 0 1 0 12"/>',
     "mute": '<path d="M4 10v4h4l5 4V6l-5 4zM17 9l5 6m0-6-5 6"/>',
     "plus": '<path d="M12 5v14M5 12h14"/>',
