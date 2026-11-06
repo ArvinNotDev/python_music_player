@@ -56,6 +56,8 @@ def test_sleep_timer_dialog_has_safe_duration_bounds(qapp):
 
 def test_playback_visualizer_respects_motion_setting(qapp):
     visualizer = PlaybackVisualizer()
+    visualizer.show()
+    qapp.processEvents()
     visualizer.set_animations_enabled(False)
     visualizer.set_playing(True)
     assert not visualizer._timer.isActive()
