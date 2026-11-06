@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import Signal, Qt
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 from ..components import ArtworkLabel, IconButton
-from ..services import display_duration, track_title, value
+from ..services import display_duration, track_id, track_title, value
 from .base import ScrollPage
 
 
@@ -19,12 +19,24 @@ class NowPlayingPage(ScrollPage):
     def __init__(self, metadata_service=None, parent=None):
         super().__init__(parent)
         self.metadata_service = metadata_service
-        self.content.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
-        self.content.setSpacing(18)
+        # Keep the page layout full-width. A dedicated expanding row with
+        # equal stretch on both sides guarantees the artwork stays centered
+        # as the scroll viewport and stacked page sizes change.
+        self.content.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.content.setSpacing(22)
         self.cover = ArtworkLabel(340)
         self.cover.setStyleSheet("background: #242630; border-radius: 16px; color: #A095FF; font-size: 72px;")
         self.cover.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.content.addWidget(self.cover, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.cover_row = QWidget()
+        self.cover_row.setMinimumWidth(0)
+        self.cover_row.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        cover_layout = QHBoxLayout(self.cover_row)
+        cover_layout.setContentsMargins(0, 0, 0, 0)
+        cover_layout.setSpacing(0)
+        cover_layout.addStretch(1)
+        cover_layout.addWidget(self.cover, 0, Qt.AlignmentFlag.AlignCenter)
+        cover_layout.addStretch(1)
+        self.content.addWidget(self.cover_row)
         self.title = QLabel("Nothing playing")
         self.title.setWordWrap(True)
         self.title.setMinimumWidth(0)
@@ -46,9 +58,9 @@ class NowPlayingPage(ScrollPage):
         self.album.setMaximumWidth(680)
         self.album.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.album.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.content.addWidget(self.title)
-        self.content.addWidget(self.artist)
-        self.content.addWidget(self.album)
+        self.content.addWidget(self.title, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.content.addWidget(self.artist, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.content.addWidget(self.album, 0, Qt.AlignmentFlag.AlignHCenter)
         actions = QHBoxLayout()
         actions.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.favorite = IconButton("heart", "Add to favorites")
@@ -86,7 +98,12 @@ class NowPlayingPage(ScrollPage):
         self.more.clicked.connect(lambda: self.moreRequested.emit(self.track) if self.track else None)
         self.lyrics.clicked.connect(self.lyricsRequested)
 
-    def set_track(self, track: Any) -> None:
+    def set_track(self, track: Any, *, force: bool = False) -> None:
+        same_track = track_id(track) == track_id(self.track)
+        if same_track and not force:
+            # Re-entering this page should not clear/reload artwork and restart
+            # the cover transition when the active track has not changed.
+            return
         self.track = track
         if not track:
             self.cover.set_track(None)
