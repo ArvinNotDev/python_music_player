@@ -1,4 +1,4 @@
-"""Sonora desktop application entry point."""
+"""RW Player desktop application entry point."""
 
 from app.application import run_application
 
