@@ -355,7 +355,7 @@ class SettingsPage(ScrollPage):
     def _start_storage_action(self, method, label: str) -> None:
         args = ()
         if label == "Export data":
-            path, _ = QFileDialog.getSaveFileName(self, "Export application data", "sonora-data.json", "JSON (*.json);;All files (*.*)")
+            path, _ = QFileDialog.getSaveFileName(self, "Export application data", "rw-player-data.json", "JSON (*.json);;All files (*.*)")
             if not path:
                 return
             args = (path,)
