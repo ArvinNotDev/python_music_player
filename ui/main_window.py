@@ -151,6 +151,9 @@ class MainWindow(QMainWindow):
         self._return_page = "home"
         self._playlist_page_open = False
         self._queue_visible = False
+        self._sidebar_visible = True
+        self._sidebar_animation = None
+        self._queue_animation = None
         self._page_animation = None
         self._animated_page = None
         self._last_query = ""
@@ -198,13 +201,17 @@ class MainWindow(QMainWindow):
         main_col.setSpacing(0)
         top = QWidget()
         top_layout = QHBoxLayout(top)
-        top_layout.setContentsMargins(24, 14, 24, 12)
-        top_layout.setSpacing(14)
+        top_layout.setContentsMargins(22, 14, 22, 12)
+        top_layout.setSpacing(12)
+        self.sidebar_button = IconButton("menu", "Toggle navigation")
+        self.sidebar_button.setCheckable(True)
+        self.sidebar_button.setChecked(True)
         self.page_heading = QLabel("Home")
         self.page_heading.setStyleSheet("font-size: 17px; font-weight: 700;")
         self.global_search = SearchBox("Search songs, albums, artists, playlists")
         self.global_search.setMaximumWidth(480)
         self.global_search.setMinimumWidth(250)
+        top_layout.addWidget(self.sidebar_button)
         top_layout.addWidget(self.page_heading)
         top_layout.addStretch(1)
         top_layout.addWidget(self.global_search)
@@ -220,8 +227,9 @@ class MainWindow(QMainWindow):
         main_col.addWidget(self.page_stack, 1)
         row.addWidget(self.main_region, 1)
         self.queue_panel = QueuePanel(self.metadata_service)
+        self.queue_panel.setMinimumWidth(0)
+        self.queue_panel.setMaximumWidth(0)
         self.queue_panel.setVisible(False)
-        self.queue_panel.setMaximumWidth(420)
         self.queue_panel.setStyleSheet("border-left: 1px solid palette(mid);")
         row.addWidget(self.queue_panel)
         root.addWidget(workspace, 1)
@@ -277,6 +285,7 @@ class MainWindow(QMainWindow):
 
     def _wire_actions(self):
         self.sidebar.navigate.connect(self.navigate)
+        self.sidebar_button.clicked.connect(self._toggle_sidebar)
         self.sidebar.playlistSelected.connect(self._open_playlist)
         self.sidebar.createPlaylist.connect(self._create_playlist)
         self.global_search.textChanged.connect(self._search_text_changed)
@@ -895,13 +904,57 @@ class MainWindow(QMainWindow):
         menu.addAction("Edit track details…", lambda: self._edit_metadata(track))
         menu.exec(self.mapToGlobal(self.rect().center()))
 
+    def _animate_horizontal_panel(self, widget, visible: bool, width: int, animation_name: str, *, hide_when_closed: bool = False):
+        animation = getattr(self, animation_name, None)
+        if animation is not None:
+            animation.stop()
+        target = width if visible else 0
+        if visible:
+            widget.setVisible(True)
+        start = widget.maximumWidth()
+        animations_enabled = bool(self._get_setting("appearance.animations", True))
+        if not animations_enabled or start == target:
+            widget.setMaximumWidth(target)
+            if not visible and hide_when_closed:
+                widget.setVisible(False)
+            setattr(self, animation_name, None)
+            return
+        animation = QPropertyAnimation(widget, b"maximumWidth", self)
+        animation.setDuration(230)
+        animation.setStartValue(start)
+        animation.setEndValue(target)
+        animation.setEasingCurve(QEasingCurve.Type.OutCubic if visible else QEasingCurve.Type.InOutCubic)
+
+        def finish():
+            if not visible and hide_when_closed:
+                widget.setVisible(False)
+            if getattr(self, animation_name, None) is animation:
+                setattr(self, animation_name, None)
+
+        animation.finished.connect(finish)
+        setattr(self, animation_name, animation)
+        animation.start()
+
+    def _toggle_sidebar(self):
+        self._sidebar_visible = not self._sidebar_visible
+        self.sidebar_button.setChecked(self._sidebar_visible)
+        self.sidebar_button.setProperty("active", self._sidebar_visible)
+        self.sidebar_button.style().unpolish(self.sidebar_button)
+        self.sidebar_button.style().polish(self.sidebar_button)
+        self._animate_horizontal_panel(
+            self.sidebar, self._sidebar_visible, 232, "_sidebar_animation"
+        )
+
     def _toggle_queue(self):
         self._queue_visible = not self._queue_visible
-        self.queue_panel.setVisible(self._queue_visible)
         self.queue_button.setChecked(self._queue_visible)
         self.queue_button.setProperty("active", self._queue_visible)
         self.queue_button.style().unpolish(self.queue_button)
         self.queue_button.style().polish(self.queue_button)
+        self._animate_horizontal_panel(
+            self.queue_panel, self._queue_visible, 420, "_queue_animation",
+            hide_when_closed=True,
+        )
         self._refresh_queue()
 
     def _queue_add_more(self):
@@ -1304,5 +1357,12 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         if self.width() < 1160 and self._queue_visible:
             self._queue_visible = False
+            if self._queue_animation is not None:
+                self._queue_animation.stop()
+                self._queue_animation = None
+            self.queue_panel.setMaximumWidth(0)
             self.queue_panel.setVisible(False)
             self.queue_button.setChecked(False)
+            self.queue_button.setProperty("active", False)
+            self.queue_button.style().unpolish(self.queue_button)
+            self.queue_button.style().polish(self.queue_button)
