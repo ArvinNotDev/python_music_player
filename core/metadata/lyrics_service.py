@@ -262,8 +262,8 @@ class LyricsService:
             # A broken or unsupported embedded tag must not prevent an online
             # lookup from using the track metadata already stored in the library.
             local_document, local_source = LyricsDocument(), ""
-            local_read_error = str(exc)
-            logger.info("Local lyrics could not be read for track %s: %s", track_id, exc)
+            local_read_error = "The audio file's embedded tags or lyrics could not be read."
+            logger.info("Local lyrics could not be read; continuing with the selected online lookup.")
         if local_document.text.strip():
             plain_document = local_document if local_document.format == "plain" else _as_document(local_document.to_plain_text(), "plain")
             synced_document = local_document if local_document.format == "lrc" and any(

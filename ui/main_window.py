@@ -76,6 +76,39 @@ class _BackgroundCall(QRunnable):
             self.signals.done.emit(None, exc)
 
 
+class _LyricsTaskSignals(QObject):
+    done = Signal(object, str, int, object, object)
+
+
+class _LyricsBackgroundCall(QRunnable):
+    """Run a lyrics lookup off-thread and deliver its result on the GUI thread."""
+
+    def __init__(self, method, args, kwargs, track, track_key, request_token, parent):
+        super().__init__()
+        self.method = method
+        self.args = args
+        self.kwargs = kwargs
+        self.track = track
+        self.track_key = track_key
+        self.request_token = request_token
+        self.signals = _LyricsTaskSignals(parent)
+
+    def run(self):
+        try:
+            result = self.method(*self.args, **self.kwargs)
+            error = None
+        except Exception as exc:
+            result = None
+            error = exc
+        self.signals.done.emit(
+            self.track,
+            self.track_key,
+            self.request_token,
+            result,
+            error,
+        )
+
+
 class _LibraryLoadSignals(QObject):
     done = Signal(object)
 
@@ -924,11 +957,11 @@ class MainWindow(QMainWindow):
         request_token = self._lyrics_request_generation
         self._lyrics_pending[key] = request_token
         self.lyrics_page.set_loading(track, "LRCLIB" if online_enabled else "local")
-        task = _BackgroundCall(method, args, kwargs)
-        task.signals.done.connect(
-            lambda result, error, selected=track, selected_key=key, token=request_token:
-                self._lyrics_loaded(selected, selected_key, token, result, error)
+        task = _LyricsBackgroundCall(
+            method, args, kwargs, track, key, request_token, self
         )
+        # Connect a bound MainWindow slot so Qt queues delivery back to the GUI thread.
+        task.signals.done.connect(self._lyrics_loaded)
         self._thread_pool.start(task)
 
     def _lyrics_loaded(self, track, key, request_token, lyrics, error):

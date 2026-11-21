@@ -130,7 +130,14 @@ class OnlineLyricsClient:
             )
         return LyricsRateLimited(retry_after)
 
-    def _request_json(self, url: str, *, provider: str, allow_not_found: bool = False):
+    def _request_json(
+        self,
+        url: str,
+        *,
+        provider: str,
+        allow_not_found: bool = False,
+        deadline: float | None = None,
+    ):
         request = Request(
             url,
             headers={
@@ -141,8 +148,14 @@ class OnlineLyricsClient:
         )
 
         def perform():
+            request_timeout = self.timeout
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise LyricsNetworkError(f"{provider} lookup timed out.")
+                request_timeout = min(request_timeout, remaining)
             try:
-                with urlopen(request, timeout=self.timeout) as response:
+                with urlopen(request, timeout=request_timeout) as response:
                     status = int(response.status)
                     headers = response.headers
                     content_type = headers.get_content_type().casefold()
@@ -186,7 +199,10 @@ class OnlineLyricsClient:
                 raise LyricsRateLimited(int(ceil(blocked_for)))
             elapsed = time.monotonic() - self._last_lrclib_request
             if self._last_lrclib_request and elapsed < self.minimum_gap:
-                time.sleep(self.minimum_gap - elapsed)
+                gap = self.minimum_gap - elapsed
+                if deadline is not None and gap >= deadline - time.monotonic():
+                    raise LyricsNetworkError("LRCLIB lookup timed out.")
+                time.sleep(gap)
             try:
                 return perform()
             finally:
@@ -301,7 +317,13 @@ class OnlineLyricsClient:
             params["duration"] = str(duration_seconds)
         direct_url = f"{LRCLIB_BASE_URL}/api/get?{urlencode(params)}"
 
-        direct_record = self._request_json(direct_url, provider="LRCLIB", allow_not_found=True)
+        deadline = time.monotonic() + 4.5
+        direct_record = self._request_json(
+            direct_url,
+            provider="LRCLIB",
+            allow_not_found=True,
+            deadline=deadline,
+        )
         if direct_record is not None:
             if not isinstance(direct_record, dict):
                 raise LyricsMalformedResponse("LRCLIB direct lookup returned an unexpected response structure.")
@@ -316,7 +338,7 @@ class OnlineLyricsClient:
 
         query = " ".join(part for part in (title, artist, album) if part)
         search_url = f"{LRCLIB_BASE_URL}/api/search?{urlencode({'q': query})}"
-        search_data = self._request_json(search_url, provider="LRCLIB")
+        search_data = self._request_json(search_url, provider="LRCLIB", deadline=deadline)
         if not isinstance(search_data, list):
             raise LyricsMalformedResponse("LRCLIB search returned an unexpected response structure.")
 
@@ -372,7 +394,12 @@ class OnlineLyricsClient:
         fallback_url = (
             f"{LYRICS_OVH_BASE_URL}/v1/{quote(artist, safe='')}/{quote(title, safe='')}"
         )
-        fallback_data = self._request_json(fallback_url, provider="lyrics.ovh", allow_not_found=True)
+        fallback_data = self._request_json(
+            fallback_url,
+            provider="lyrics.ovh",
+            allow_not_found=True,
+            deadline=deadline,
+        )
         if fallback_data is None:
             return LyricsProviderResult("not_found", message="No matching lyrics were found online.")
         if not isinstance(fallback_data, dict) or not isinstance(fallback_data.get("lyrics"), str):

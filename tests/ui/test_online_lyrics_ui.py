@@ -42,7 +42,7 @@ def test_lyrics_page_loading_success_and_synced_plain_switch(qapp):
     page = LyricsPage()
     page.set_loading(TRACK)
     assert not page.state_card.isHidden()
-    assert "Searching" in page.state_title.text()
+    assert "Loading" in page.state_title.text()
 
     plain = LyricsDocument([LyricsLine("First line"), LyricsLine("Second line")], "plain")
     synced = parse_lrc("[00:01.00]First line\n[00:05.00]Second line")
