@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QBoxLayout, QSignalBlocker, QSize, Qt, Signal
+from PySide6.QtCore import QSignalBlocker, QSize, Qt, Signal
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QPushButton, QSlider, QSizePolicy, QVBoxLayout, QWidget,
+    QBoxLayout, QFrame, QHBoxLayout, QLabel, QPushButton, QSlider, QSizePolicy, QVBoxLayout, QWidget,
 )
 
 from ..components import ArtworkLabel, IconButton
