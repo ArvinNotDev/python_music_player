@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import QSignalBlocker, QSize, Qt, Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QMenu, QSlider, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QMenu, QSlider, QSizePolicy, QVBoxLayout, QWidget
 
 from ..components import ArtworkLabel, IconButton
 from ..components.visualizer import PlaybackVisualizer
@@ -32,9 +32,12 @@ class PlaybackBar(QFrame):
     def __init__(self, playback_controller: Any, metadata_service: Any = None, parent=None):
         super().__init__(parent)
         self.setObjectName("PlaybackBar")
+        self.setMinimumHeight(86)
         self.controller = playback_controller
         self.metadata_service = metadata_service
         self.track: Any = None
+        self._title_text = "Nothing playing"
+        self._artist_text = "Select a song"
         self.playing = False
         self.position = 0.0
         self.duration = 0.0
@@ -45,11 +48,12 @@ class PlaybackBar(QFrame):
         self._accent_color = "#8B7CFF"
         self._dragging = False
         root = QHBoxLayout(self)
-        root.setContentsMargins(20, 10, 20, 10)
-        root.setSpacing(16)
+        root.setContentsMargins(18, 8, 18, 8)
+        root.setSpacing(12)
         left = QWidget()
-        left.setMinimumWidth(220)
-        left.setMaximumWidth(320)
+        left.setMinimumWidth(168)
+        left.setMaximumWidth(284)
+        left.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         left_row = QHBoxLayout(left)
         left_row.setContentsMargins(0, 0, 0, 0)
         left_row.setSpacing(10)
@@ -57,11 +61,15 @@ class PlaybackBar(QFrame):
         self.art.setStyleSheet("background: #242630; border-radius: 7px; color: #A095FF;")
         self.title = QLabel("Nothing playing")
         self.title.setStyleSheet("font-weight: 650;")
-        self.title.setMaximumWidth(190)
+        self.title.setMinimumWidth(0)
+        self.title.setMaximumWidth(220)
+        self.title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.title.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         self.artist = QLabel("Select a song")
         self.artist.setProperty("role", "secondary")
-        self.artist.setMaximumWidth(190)
+        self.artist.setMinimumWidth(0)
+        self.artist.setMaximumWidth(220)
+        self.artist.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.info = QVBoxLayout()
         self.info.setSpacing(3)
         self.info.addWidget(self.title)
@@ -77,7 +85,8 @@ class PlaybackBar(QFrame):
         root.addWidget(left, 1)
 
         center = QWidget()
-        center.setMinimumWidth(400)
+        center.setMinimumWidth(292)
+        center.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         center_col = QVBoxLayout(center)
         center_col.setContentsMargins(0, 0, 0, 0)
         center_col.setSpacing(3)
@@ -88,7 +97,7 @@ class PlaybackBar(QFrame):
         self.previous_button = IconButton("previous", "Previous track")
         self.play_button = IconButton("play", "Play", checkable=True)
         self.play_button.setFixedSize(42, 42)
-        self.play_button.setStyleSheet("QToolButton { background: #8B7CFF; border-radius: 21px; } QToolButton:hover { background: #A095FF; }")
+        self.play_button.setProperty("primary", True)
         self.play_button.setIconSize(QSize(20, 20))
         self.next_button = IconButton("next", "Next track")
         self.repeat_button = IconButton("repeat", "Repeat off")
@@ -117,7 +126,8 @@ class PlaybackBar(QFrame):
         root.addWidget(center, 2)
 
         right = QWidget()
-        right.setMinimumWidth(214)
+        right.setMinimumWidth(178)
+        right.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         right_row = QHBoxLayout(right)
         right_row.setContentsMargins(0, 0, 0, 0)
         right_row.setSpacing(5)
@@ -125,7 +135,8 @@ class PlaybackBar(QFrame):
         self.volume_icon.setFixedSize(32, 32)
         self.volume = QSlider(Qt.Orientation.Horizontal)
         self.volume.setRange(0, 100)
-        self.volume.setFixedWidth(96)
+        self.volume.setMinimumWidth(54)
+        self.volume.setMaximumWidth(84)
         self.visualizer = PlaybackVisualizer()
         right_row.addWidget(self.visualizer)
         self.queue = IconButton("queue", "Queue")
@@ -165,10 +176,11 @@ class PlaybackBar(QFrame):
     def set_track(self, track: Any) -> None:
         self.track = track
         self.art.set_track(track, self.metadata_service)
-        self.title.setText(track_title(track) if track else "Nothing playing")
-        self.title.setToolTip(self.title.text())
-        self.artist.setText(str(value(track, "artist", "artists", default="Select a song") or "Select a song"))
-        self.artist.setToolTip(self.artist.text())
+        self._title_text = track_title(track) if track else "Nothing playing"
+        self._artist_text = str(value(track, "artist", "artists", default="Select a song") or "Select a song")
+        self.title.setToolTip(self._title_text)
+        self.artist.setToolTip(self._artist_text)
+        self._update_track_labels()
         self.duration = float(_seconds(track))
         self.total_time.setText(display_duration(track) if track else "0:00")
         self.seek.setEnabled(self.duration > 0)
@@ -181,7 +193,8 @@ class PlaybackBar(QFrame):
         self.playing = bool(playing)
         self.visualizer.set_playing(self.playing)
         from ..components.icons import icon
-        self.play_button.setIcon(icon("pause" if self.playing else "play", "#FFFFFF"))
+        self.play_button.icon_name = "pause" if self.playing else "play"
+        self.play_button.setIcon(icon(self.play_button.icon_name, "#FFFFFF"))
         self.play_button.setToolTip("Pause" if self.playing else "Play")
 
     def set_position(self, seconds: float, duration: float | None = None) -> None:
@@ -330,6 +343,16 @@ class PlaybackBar(QFrame):
             self.set_position(seconds)
         else:
             self._dragging = False
+
+    def _update_track_labels(self) -> None:
+        for label, source in ((self.title, self._title_text), (self.artist, self._artist_text)):
+            width = max(24, label.contentsRect().width())
+            label.setText(label.fontMetrics().elidedText(source, Qt.TextElideMode.ElideRight, width))
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self.visualizer.setVisible(self.width() >= 1080)
+        self._update_track_labels()
 
     def _show_more(self) -> None:
         if not self.track:

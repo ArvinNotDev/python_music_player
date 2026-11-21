@@ -45,8 +45,10 @@ class LyricsPage(ScrollPage):
         self.content.addWidget(self.empty)
         self.list = QListWidget()
         self.list.setFrameShape(QListWidget.Shape.NoFrame)
-        self.list.setSpacing(7)
-        self.list.setStyleSheet("QListWidget { background: transparent; } QListWidget::item { padding: 7px 10px; border-radius: 8px; }")
+        self.list.setSpacing(9)
+        self.list.setWordWrap(True)
+        self.list.setUniformItemSizes(False)
+        self.list.setStyleSheet("QListWidget::item { padding: 10px 14px; border-radius: 10px; }")
         self.list.verticalScrollBar().valueChanged.connect(self._manual_scroll)
         self.content.addWidget(self.list)
         self.track: Any = None
@@ -57,6 +59,9 @@ class LyricsPage(ScrollPage):
         self.large_text = False
         self._manual_until = 0.0
         self._programmatic_scroll = False
+        self._secondary_color = "#AAB2C0"
+        self._muted_color = "#778294"
+        self._accent_color = "#8B7CFF"
 
     def set_track_lyrics(self, track: Any, lyrics: Any) -> None:
         self.track, self.raw_lyrics = track, lyrics
@@ -73,6 +78,7 @@ class LyricsPage(ScrollPage):
             font.setPointSize(16 if self.large_text else 15)
             item.setFont(font)
             self.list.addItem(item)
+            self._style_row(self.list.count() - 1, False)
 
     @staticmethod
     def _parse(lyrics: Any) -> list[tuple[float | None, str]]:
@@ -101,9 +107,10 @@ class LyricsPage(ScrollPage):
                 break
         if current == self.active_line:
             return
-        if 0 <= self.active_line < self.list.count():
-            self._style_row(self.active_line, False)
+        previous = self.active_line
         self.active_line = current
+        if 0 <= previous < self.list.count():
+            self._style_row(previous, False)
         if current >= 0:
             self._style_row(current, True)
             if self.auto_scroll and time.monotonic() >= self._manual_until:
@@ -114,11 +121,18 @@ class LyricsPage(ScrollPage):
     def _style_row(self, row: int, active: bool) -> None:
         item = self.list.item(row)
         if item:
-            item.setForeground(QColor("#A095FF" if active else ("#F4F5F8" if row >= self.active_line else "#777D8B")))
+            item.setForeground(QColor(self._accent_color if active else self._secondary_color))
             font = item.font()
             font.setBold(active)
             font.setPointSize((18 if active else 16) if self.large_text else (17 if active else 15))
             item.setFont(font)
+
+    def set_theme_colors(self, secondary: str, muted: str, accent: str) -> None:
+        self._secondary_color = secondary
+        self._muted_color = muted
+        self._accent_color = accent
+        for row in range(self.list.count()):
+            self._style_row(row, row == self.active_line)
 
     def _manual_scroll(self, _value: int) -> None:
         if not self._programmatic_scroll:

@@ -401,6 +401,9 @@ class MainWindow(QMainWindow):
         for button in self.sidebar.findChildren(NavigationButton):
             button.setIcon(icon(button.icon_name, color))
         self.playback_bar.set_theme_colors(color, accent)
+        self.now_playing_page.set_theme_colors(color, accent)
+        palette = PALETTES[resolved]
+        self.lyrics_page.set_theme_colors(palette.secondary, palette.muted, accent)
         animations_enabled = bool(self._get_setting("appearance.animations", True))
         ArtworkLabel.set_animations_enabled_for_all(animations_enabled)
         from .components.cards import CollectionCard

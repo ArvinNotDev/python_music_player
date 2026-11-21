@@ -258,6 +258,21 @@ class MainWindowSmokeTest(unittest.TestCase):
             self.assertLessEqual(abs(cover_center - row.width() / 2), 1.0)
             self.assertGreaterEqual(row.width(), cover.width())
 
+    def test_now_playing_transport_and_seek_use_playback_controller(self):
+        self.window.playback_controller.play_track(TRACKS[0])
+        page = self.window.now_playing_page
+        self.assertEqual(page.track["id"], "t1")
+        self.assertTrue(page.playing)
+
+        page.play_button.click()
+        self.assertFalse(self.window.playback_controller.is_playing)
+        self.assertFalse(page.playing)
+
+        page._seek_started()
+        page.seek.setValue(500)
+        page._seek_released()
+        self.assertAlmostEqual(self.window.playback_controller.position, 93.5, places=1)
+
     def test_rw_player_window_branding_and_icon(self):
         self.assertEqual(self.window.windowTitle(), "RW Player")
         self.assertFalse(self.window.windowIcon().isNull())
