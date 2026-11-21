@@ -108,6 +108,10 @@ def stylesheet(theme: str = "dark", density: str = "comfortable", accent: str | 
             background: {a}; border-color: {a}; color: #FFFFFF; font-weight: 650;
         }}
         QPushButton[primary="true"]:hover {{ background: {p.accent_hover}; border-color: {p.accent_hover}; }}
+        QToolButton[primary="true"] {{
+            background: {a}; border: 1px solid {a}; color: #FFFFFF; border-radius: 999px;
+        }}
+        QToolButton[primary="true"]:hover {{ background: {p.accent_hover}; border-color: {p.accent_hover}; }}
         QToolButton {{
             background: transparent; border: 1px solid transparent; border-radius: 9px; padding: 6px;
         }}

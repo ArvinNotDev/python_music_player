@@ -321,6 +321,8 @@ class MainWindow(QMainWindow):
         self.now_playing_page.playlistRequested.connect(self._prompt_add_to_playlist)
         self.now_playing_page.moreRequested.connect(self._show_track_menu)
         self.now_playing_page.lyricsRequested.connect(lambda: self.navigate("lyrics"))
+        self.now_playing_page.transportRequested.connect(self._now_playing_transport)
+        self.now_playing_page.seekRequested.connect(lambda seconds: self._controller_call("seek", seconds))
         self.lyrics_page.editRequested.connect(self._edit_lyrics)
         self.lyrics_page.autoScrollChanged.connect(lambda enabled: self._set_setting("lyrics.auto_scroll", enabled))
         self.settings_page.themeChanged.connect(lambda _theme: self._apply_theme())
@@ -340,6 +342,7 @@ class MainWindow(QMainWindow):
         self.playback_bar.moreRequested.connect(self._show_track_menu)
         self.playback_bar.errorOccurred.connect(self._status)
         self.playback_bar.positionUpdated.connect(self.lyrics_page.set_position)
+        self.playback_bar.positionUpdated.connect(self.now_playing_page.set_position)
 
         self.queue_panel.removeRequested.connect(self._remove_queue_item)
         self.queue_panel.moveRequested.connect(self._move_queue_item)
@@ -580,6 +583,16 @@ class MainWindow(QMainWindow):
         self._controller_call("add_to_queue", track)
         self._refresh_queue()
 
+    def _now_playing_transport(self, action: str) -> None:
+        methods = {
+            "previous": "previous",
+            "toggle_play_pause": "toggle_play_pause",
+            "next": "next",
+        }
+        method = methods.get(str(action))
+        if method:
+            self._controller_call(method)
+
     def _controller_call(self, method_name: str, *args):
         method = getattr(self.playback_controller, method_name, None) if self.playback_controller else None
         if not callable(method):
@@ -597,6 +610,7 @@ class MainWindow(QMainWindow):
         if changed:
             self.playback_bar.set_track(track)
             self.now_playing_page.set_track(track, force=force)
+            self.now_playing_page.set_position(self.playback_bar.position, self.playback_bar.duration)
         self._update_current_favorite()
         if changed and self._active_page == "lyrics":
             self._load_lyrics(track)
@@ -1078,7 +1092,11 @@ class MainWindow(QMainWindow):
         state = value(controller, "is_playing", "playing", default=False)
         playing = state.lower() in ("playing", "play", "started") if isinstance(state, str) else bool(state)
         self.playback_bar.set_playback_state(playing)
-        self.playback_bar.set_position(float(value(controller, "position", "position_seconds", default=0) or 0), float(value(controller, "duration", "duration_seconds", default=0) or 0))
+        self.now_playing_page.set_playback_state(playing)
+        position = float(value(controller, "position", "position_seconds", default=0) or 0)
+        duration = float(value(controller, "duration", "duration_seconds", default=0) or 0)
+        self.playback_bar.set_position(position, duration)
+        self.now_playing_page.set_position(position, duration)
         self.playback_bar.set_volume(float(value(controller, "volume", default=0.7) or 0))
         self.playback_bar.set_muted(bool(value(controller, "is_muted", "muted", default=False)))
         self.playback_bar.set_shuffle(bool(value(controller, "shuffle", "shuffle_enabled", "is_shuffle", default=False)))
@@ -1101,6 +1119,7 @@ class MainWindow(QMainWindow):
         else:
             playing = bool(state)
         self.playback_bar.set_playback_state(playing)
+        self.now_playing_page.set_playback_state(playing)
 
     def _on_position_changed(self, position, *args):
         duration = args[0] if args else None
@@ -1163,6 +1182,7 @@ class MainWindow(QMainWindow):
     def _update_current_favorite(self):
         favorite = bool(self._current_track and any(track_id(item) == track_id(self._current_track) for item in self._favorites))
         self.playback_bar.set_favorite(favorite)
+        self.now_playing_page.set_favorite(favorite)
 
     def _remove_from_collection(self, table, track):
         if table is self.favorites_page.table:
