@@ -114,9 +114,16 @@ def _retry_after_seconds(value: str | None) -> int | None:
 class OnlineLyricsClient:
     """Small standard-library HTTP client; all LRCLIB calls are serialized."""
 
-    def __init__(self, *, timeout: float = 4.0, minimum_gap: float = 0.35):
+    def __init__(
+        self,
+        *,
+        timeout: float = 4.0,
+        minimum_gap: float = 0.35,
+        fallback_enabled: bool = True,
+    ):
         self.timeout = max(1.0, float(timeout))
         self.minimum_gap = max(0.2, min(0.5, float(minimum_gap)))
+        self.fallback_enabled = bool(fallback_enabled)
         self._lrclib_lock = threading.Lock()
         self._last_lrclib_request = 0.0
         self._lrclib_blocked_until = 0.0
@@ -390,6 +397,9 @@ class OnlineLyricsClient:
                 candidates=[candidate for _, candidate in matched[:8]],
                 message="Several recordings match this track. Choose the correct version.",
             )
+
+        if not self.fallback_enabled:
+            return LyricsProviderResult("not_found", message="No matching lyrics were found in LRCLIB.")
 
         fallback_url = (
             f"{LYRICS_OVH_BASE_URL}/v1/{quote(artist, safe='')}/{quote(title, safe='')}"

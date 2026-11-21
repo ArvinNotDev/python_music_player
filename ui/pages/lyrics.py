@@ -166,7 +166,10 @@ class LyricsPage(ScrollPage):
     def _set_track_header(self, track: Any) -> None:
         self.track = track
         self.track_label.setText(track_title(track) if track else "No track selected")
-        artist = str(value(track, "artist", "album_artist", default="") or "") if track else ""
+        artist = (
+            str(value(track, "artist", default="") or value(track, "album_artist", default="") or "")
+            if track else ""
+        )
         album = str(value(track, "album", default="") or "") if track else ""
         details = " · ".join(part for part in (artist, album) if part)
         self.artist_label.setText(details)

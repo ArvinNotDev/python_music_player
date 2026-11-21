@@ -188,7 +188,7 @@ class LyricsService:
             duration_seconds = 0
         return (
             normalize_match_text(getattr(track, "title", "")),
-            normalize_match_text(getattr(track, "artist", "")),
+            normalize_match_text(getattr(track, "artist", "") or getattr(track, "album_artist", "")),
             normalize_match_text(getattr(track, "album", "")),
             duration_seconds,
         )
@@ -276,7 +276,7 @@ class LyricsService:
                 synced_document=synced_document,
                 source=local_source,
                 attribution_url="",
-                matched_track={"title": track.title, "artist": track.artist, "album": track.album, "duration": track.duration_ms / 1000.0},
+                matched_track={"title": track.title, "artist": track.artist or track.album_artist, "album": track.album, "duration": track.duration_ms / 1000.0},
             )
         if not online_enabled:
             return LyricsLookupResult(
@@ -298,7 +298,7 @@ class LyricsService:
         try:
             provider_result = self.online_client.lookup(
                 title=track.title,
-                artist=track.artist,
+                artist=track.artist or track.album_artist,
                 album=track.album,
                 duration_ms=track.duration_ms,
             )

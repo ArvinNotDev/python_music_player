@@ -436,3 +436,35 @@ def test_retry_after_blocks_subsequent_lrclib_requests(monkeypatch):
     assert second.value.retry_after is not None
     assert 0 < second.value.retry_after <= 18
     assert len(calls) == 1
+
+
+def test_lyrics_ovh_fallback_can_be_disabled(monkeypatch):
+    calls = []
+
+    def fake_urlopen(request, timeout):
+        calls.append(request.full_url)
+        if "/api/get?" in request.full_url:
+            raise _http_error(request, 404)
+        return _Response([])
+
+    monkeypatch.setattr(online_module, "urlopen", fake_urlopen)
+    client = OnlineLyricsClient(fallback_enabled=False)
+    result = client.lookup(title="Northern Lights", artist="Mira Vale")
+    assert result.status == "not_found"
+    assert len(calls) == 2
+    assert all("/v1/" not in url for url in calls)
+
+
+def test_album_artist_is_used_when_track_artist_is_missing(database, tmp_path):
+    path = tmp_path / "album-artist.mp3"
+    path.write_bytes(b"fixture")
+    track, _ = TrackRepository(database).upsert(
+        Track(
+            None, str(path), title="Northern Lights", artist="",
+            album_artist="Mira Vale", album="First Light", duration_ms=245_000,
+        )
+    )
+    path.with_suffix(".lrc").write_text("[00:01.00]Local", encoding="utf-8")
+    service = LyricsService(TrackRepository(database))
+    result = service.load_lyrics(track.id)
+    assert result.matched_track["artist"] == "Mira Vale"
