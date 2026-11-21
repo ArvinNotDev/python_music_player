@@ -5,10 +5,12 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtCore import QPoint, QRect, Qt
+from PySide6.QtCore import QPoint, QRect, QSize, Qt
 from PySide6.QtGui import QImage, QPainter
-from PySide6.QtWidgets import QApplication, QStyleOptionViewItem
+from PySide6.QtWidgets import QApplication, QStyleOptionViewItem, QWidget
 
+from ui.components import CursorSpotlight
+from ui.components.common import ArtworkLabel
 from ui.components.track_table import TrackTable
 from ui.delegates.artwork import ArtworkDelegate
 from ui.models import TrackTableModel
@@ -64,6 +66,34 @@ class RepeatController:
 
     def set_repeat_mode(self, mode):
         self.repeat_mode = mode
+
+
+def test_artwork_label_crops_every_image_to_an_exact_square(qapp):
+    artwork = ArtworkLabel(96)
+    image = QImage(80, 160, QImage.Format.Format_ARGB32)
+    image.fill(Qt.GlobalColor.cyan)
+    artwork._apply(image)
+    assert artwork.pixmap().size() == QSize(96, 96)
+    assert artwork.size() == QSize(96, 96)
+    artwork.close()
+
+
+def test_cursor_spotlight_tracks_pointer_and_respects_reduced_motion(qapp):
+    host = QWidget()
+    host.resize(640, 480)
+    host.show()
+    spotlight = CursorSpotlight(host)
+    spotlight.set_animations_enabled(False)
+    spotlight.set_target(QPoint(240, 180))
+    qapp.processEvents()
+    assert spotlight.isVisible()
+    assert spotlight.pos() == QPoint(
+        240 - spotlight.RADIUS, 180 - spotlight.RADIUS
+    )
+    assert not spotlight._timer.isActive()
+    spotlight.hide_spotlight()
+    assert not spotlight.isVisible()
+    host.close()
 
 
 def test_repeat_button_cycles_three_modes_with_distinct_repeat_one_icon(qapp):

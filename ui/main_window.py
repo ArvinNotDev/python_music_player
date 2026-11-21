@@ -7,14 +7,17 @@ from typing import Any, Callable
 
 from PySide6.QtGui import QIcon
 
-from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Qt, Signal, QPropertyAnimation, QEasingCurve
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtCore import QObject, QEvent, QRunnable, QThreadPool, QTimer, Qt, Signal, QPropertyAnimation, QEasingCurve
+from PySide6.QtGui import QCursor, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMenu,
-    QMessageBox, QGraphicsOpacityEffect, QStackedWidget, QStatusBar, QVBoxLayout, QWidget,
+    QMessageBox, QStatusBar, QVBoxLayout, QWidget,
 )
 
-from .components import ArtworkLabel, CommandPalette, IconButton, SearchBox, Sidebar
+from .components import (
+    AnimatedStackedWidget, ArtworkLabel, CommandPalette, CursorSpotlight,
+    IconButton, SearchBox, Sidebar,
+)
 from .dialogs import LyricsEditorDialog, MetadataEditorDialog, PlaylistSelectDialog, SleepTimerDialog, TrackPickerDialog
 from .pages import (
     CollectionDetailPage, EntityGridPage, HomePage, LyricsPage, NowPlayingPage,
@@ -157,8 +160,6 @@ class MainWindow(QMainWindow):
         self._sidebar_visible = True
         self._sidebar_animation = None
         self._queue_animation = None
-        self._page_animation = None
-        self._animated_page = None
         self._last_query = ""
         self._art_accent = "#8B7CFF"
         self._thread_pool = QThreadPool.globalInstance()
@@ -174,6 +175,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(QStatusBar(self))
         self._build_shell()
         self._build_pages()
+        self._install_cursor_tracking()
         self._wire_actions()
         self.command_palette = CommandPalette(self)
         self.command_palette.commandActivated.connect(self._execute_palette_command)
@@ -227,7 +229,7 @@ class MainWindow(QMainWindow):
         top_layout.addWidget(self.timer_button)
         top_layout.addWidget(self.queue_button)
         main_col.addWidget(top)
-        self.page_stack = QStackedWidget()
+        self.page_stack = AnimatedStackedWidget()
         main_col.addWidget(self.page_stack, 1)
         row.addWidget(self.main_region, 1)
         self.queue_panel = QueuePanel(self.metadata_service)
@@ -240,6 +242,7 @@ class MainWindow(QMainWindow):
         self.playback_bar = PlaybackBar(self.playback_controller, self.metadata_service)
         root.addWidget(self.playback_bar)
         self.setCentralWidget(self.shell)
+        self._cursor_spotlight = CursorSpotlight(self.shell)
 
     def _build_pages(self):
         self.pages: dict[str, QWidget] = {}
@@ -322,7 +325,6 @@ class MainWindow(QMainWindow):
         self.now_playing_page.moreRequested.connect(self._show_track_menu)
         self.now_playing_page.lyricsRequested.connect(lambda: self.navigate("lyrics"))
         self.now_playing_page.transportRequested.connect(self._now_playing_transport)
-        self.now_playing_page.seekRequested.connect(lambda seconds: self._controller_call("seek", seconds))
         self.lyrics_page.editRequested.connect(self._edit_lyrics)
         self.lyrics_page.autoScrollChanged.connect(lambda enabled: self._set_setting("lyrics.auto_scroll", enabled))
         self.settings_page.themeChanged.connect(lambda _theme: self._apply_theme())
@@ -342,7 +344,6 @@ class MainWindow(QMainWindow):
         self.playback_bar.moreRequested.connect(self._show_track_menu)
         self.playback_bar.errorOccurred.connect(self._status)
         self.playback_bar.positionUpdated.connect(self.lyrics_page.set_position)
-        self.playback_bar.positionUpdated.connect(self.now_playing_page.set_position)
 
         self.queue_panel.removeRequested.connect(self._remove_queue_item)
         self.queue_panel.moveRequested.connect(self._move_queue_item)
@@ -405,6 +406,9 @@ class MainWindow(QMainWindow):
         palette = PALETTES[resolved]
         self.lyrics_page.set_theme_colors(palette.secondary, palette.muted, accent)
         animations_enabled = bool(self._get_setting("appearance.animations", True))
+        self.page_stack.set_animations_enabled(animations_enabled)
+        self._cursor_spotlight.set_animations_enabled(animations_enabled)
+        self._cursor_spotlight.apply_theme(resolved, accent)
         ArtworkLabel.set_animations_enabled_for_all(animations_enabled)
         from .components.cards import CollectionCard
         CollectionCard.set_animations_enabled_for_all(animations_enabled)
@@ -478,25 +482,8 @@ class MainWindow(QMainWindow):
         self._active_page = destination
         self.page_heading.setText({"entity_detail": "Collection", "recently_played": "Recently played", "search": "Search"}.get(destination, destination.replace("_", " ").title()))
         target = self.pages[destination]
-        previous = self.page_stack.currentWidget()
-        if self._page_animation:
-            self._page_animation.stop()
-        if self._animated_page is not None:
-            self._animated_page.setGraphicsEffect(None)
-            self._animated_page = None
+        self.page_stack.set_animations_enabled(bool(self._get_setting("appearance.animations", True)))
         self.page_stack.setCurrentWidget(target)
-        if previous is not target and bool(self._get_setting("appearance.animations", True)):
-            effect = QGraphicsOpacityEffect(target)
-            target.setGraphicsEffect(effect)
-            animation = QPropertyAnimation(effect, b"opacity", self)
-            animation.setDuration(210)
-            animation.setStartValue(0.0)
-            animation.setEndValue(1.0)
-            animation.setEasingCurve(QEasingCurve.Type.OutCubic)
-            animation.finished.connect(lambda page=target: page.setGraphicsEffect(None))
-            self._page_animation = animation
-            self._animated_page = target
-            animation.start()
         self.sidebar.set_active(destination if destination in ("home", "now_playing", "songs", "albums", "artists", "recently_played", "playlists", "favorites", "settings") else "")
         if destination == "search" and self.global_search.input.text().strip():
             self.search_page.search(self.global_search.input.text())
@@ -1391,6 +1378,43 @@ class MainWindow(QMainWindow):
 
     def _status(self, message: str):
         self.statusBar().showMessage(str(message), 5000)
+
+    def _install_cursor_tracking(self) -> None:
+        """Track pointer movement across existing and dynamically shown widgets."""
+        app = QApplication.instance()
+        if app is None:
+            return
+        for widget in (self, *self.findChildren(QWidget)):
+            widget.setMouseTracking(True)
+        app.installEventFilter(self)
+
+    def _belongs_to_window(self, widget) -> bool:
+        current = widget
+        while isinstance(current, QWidget):
+            if current is self:
+                return True
+            current = current.parentWidget()
+        return False
+
+    def eventFilter(self, watched, event):
+        if isinstance(watched, QWidget) and self._belongs_to_window(watched):
+            if event.type() == QEvent.Type.Show:
+                watched.setMouseTracking(True)
+            elif event.type() == QEvent.Type.MouseMove:
+                position = self.shell.mapFromGlobal(event.globalPosition().toPoint())
+                if self.shell.rect().contains(position):
+                    self._cursor_spotlight.set_target(position)
+                else:
+                    self._cursor_spotlight.hide_spotlight()
+            elif event.type() == QEvent.Type.Leave:
+                position = self.shell.mapFromGlobal(QCursor.pos())
+                if not self.shell.rect().contains(position):
+                    self._cursor_spotlight.hide_spotlight()
+        return super().eventFilter(watched, event)
+
+    def hideEvent(self, event) -> None:
+        self._cursor_spotlight.hide_spotlight()
+        super().hideEvent(event)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

@@ -235,12 +235,18 @@ class ArtworkLabel(QLabel):
             self.setText("♪")
 
     def _apply(self, image: QImage) -> None:
-        pixmap = QPixmap.fromImage(image).scaled(
-            self._target_size, self._target_size, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+        expanded = QPixmap.fromImage(image).scaled(
+            self._target_size, self._target_size,
+            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
             Qt.TransformationMode.SmoothTransformation,
         )
+        crop_x = max(0, (expanded.width() - self._target_size) // 2)
+        crop_y = max(0, (expanded.height() - self._target_size) // 2)
+        pixmap = expanded.copy(crop_x, crop_y, self._target_size, self._target_size)
         self.setText("")
         self.setPixmap(pixmap)
+        self.updateGeometry()
+        self.update()
         if self._animations_enabled:
             self._fade_effect.setOpacity(0.0)
             animation = QPropertyAnimation(self._fade_effect, b"opacity", self)

@@ -258,20 +258,23 @@ class MainWindowSmokeTest(unittest.TestCase):
             self.assertLessEqual(abs(cover_center - row.width() / 2), 1.0)
             self.assertGreaterEqual(row.width(), cover.width())
 
-    def test_now_playing_transport_and_seek_use_playback_controller(self):
+    def test_now_playing_transport_uses_playback_controller_without_duplicate_seek_bar(self):
         self.window.playback_controller.play_track(TRACKS[0])
         page = self.window.now_playing_page
         self.assertEqual(page.track["id"], "t1")
         self.assertTrue(page.playing)
+        self.assertFalse(hasattr(page, "seek"))
 
         page.play_button.click()
         self.assertFalse(self.window.playback_controller.is_playing)
         self.assertFalse(page.playing)
 
-        page._seek_started()
-        page.seek.setValue(500)
-        page._seek_released()
-        self.assertAlmostEqual(self.window.playback_controller.position, 93.5, places=1)
+    def test_page_stack_uses_snapshot_transition_component(self):
+        self.assertEqual(type(self.window.page_stack).__name__, "AnimatedStackedWidget")
+        self.window.settings_service.set("appearance.animations", False)
+        self.window._navigate("songs")
+        self.assertIs(self.window.page_stack.currentWidget(), self.window.songs_page)
+        self.assertIsNone(self.window.page_stack._active_transition)
 
     def test_rw_player_window_branding_and_icon(self):
         self.assertEqual(self.window.windowTitle(), "RW Player")

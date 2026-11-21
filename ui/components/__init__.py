@@ -4,9 +4,11 @@ from .cards import CollectionCard, ResponsiveCardGrid, TrackCardStrip
 from .sidebar import Sidebar
 from .command_palette import CommandPalette
 from .visualizer import PlaybackVisualizer
+from .animated_stack import AnimatedStackedWidget
+from .cursor_spotlight import CursorSpotlight
 
 __all__ = [
     "ArtworkLabel", "CollectionCard", "CommandPalette", "EmptyState", "IconButton",
-    "PlaybackVisualizer", "ResponsiveCardGrid", "SearchBox", "SectionHeader",
+    "AnimatedStackedWidget", "CursorSpotlight", "PlaybackVisualizer", "ResponsiveCardGrid", "SearchBox", "SectionHeader",
     "Sidebar", "TrackCardStrip", "TrackTable",
 ]

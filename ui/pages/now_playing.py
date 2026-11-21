@@ -4,7 +4,7 @@ from typing import Any
 
 from PySide6.QtCore import QSignalBlocker, QSize, Qt, Signal
 from PySide6.QtWidgets import (
-    QBoxLayout, QFrame, QHBoxLayout, QLabel, QPushButton, QSlider, QSizePolicy, QVBoxLayout, QWidget,
+    QBoxLayout, QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
 )
 
 from ..components import ArtworkLabel, IconButton
@@ -13,31 +13,25 @@ from ..services import display_duration, duration_seconds, track_id, track_title
 from .base import ScrollPage
 
 
-def _clock(seconds: float) -> str:
-    total = max(0, int(seconds or 0))
-    return f"{total // 60}:{total % 60:02d}"
-
-
 class CenteredArtworkRow(QWidget):
-    """A full-width row that keeps the square cover centered at every size."""
+    """Keep the square artwork centered through the Qt layout system."""
 
     def __init__(self, artwork: ArtworkLabel, parent=None):
         super().__init__(parent)
-        self.artwork = artwork
-        self.artwork.setParent(self)
         self.setMinimumWidth(0)
         self.setFixedHeight(artwork.height())
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self._center_artwork()
+        self.row = QHBoxLayout(self)
+        self.row.setContentsMargins(0, 0, 0, 0)
+        self.row.setSpacing(0)
+        self.row.addStretch(1)
+        self.row.addWidget(artwork, 0, Qt.AlignmentFlag.AlignCenter)
+        self.row.addStretch(1)
 
-    def _center_artwork(self) -> None:
-        x = max(0, (self.width() - self.artwork.width()) // 2)
-        y = max(0, (self.height() - self.artwork.height()) // 2)
-        self.artwork.move(x, y)
-
-    def resizeEvent(self, event) -> None:
-        super().resizeEvent(event)
-        self._center_artwork()
+    def set_artwork_height(self, size: int) -> None:
+        self.setFixedHeight(max(32, int(size)))
+        self.row.invalidate()
+        self.row.activate()
 
 
 class NowPlayingPage(ScrollPage):
@@ -46,7 +40,6 @@ class NowPlayingPage(ScrollPage):
     moreRequested = Signal(object)
     lyricsRequested = Signal()
     transportRequested = Signal(str)
-    seekRequested = Signal(float)
 
     def __init__(self, metadata_service=None, parent=None):
         super().__init__(parent)
@@ -55,7 +48,6 @@ class NowPlayingPage(ScrollPage):
         self.playing = False
         self.position = 0.0
         self.duration = 0.0
-        self._dragging = False
         self._text_color = "#F4F6FA"
         self._accent_color = "#8B7CFF"
 
@@ -76,9 +68,11 @@ class NowPlayingPage(ScrollPage):
         artwork_column = QVBoxLayout(self.artwork_panel)
         artwork_column.setContentsMargins(0, 0, 0, 0)
         artwork_column.setSpacing(12)
-        artwork_frame = QFrame()
-        artwork_frame.setObjectName("NowPlayingArtworkFrame")
-        artwork_layout = QVBoxLayout(artwork_frame)
+        artwork_column.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+        self.artwork_frame = QFrame()
+        self.artwork_frame.setObjectName("NowPlayingArtworkFrame")
+        self.artwork_frame.setFixedSize(360, 360)
+        artwork_layout = QVBoxLayout(self.artwork_frame)
         artwork_layout.setContentsMargins(10, 10, 10, 10)
         self.cover = ArtworkLabel(340)
         self.cover.setStyleSheet(
@@ -87,7 +81,7 @@ class NowPlayingPage(ScrollPage):
         self.cover.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.cover_row = CenteredArtworkRow(self.cover)
         artwork_layout.addWidget(self.cover_row)
-        artwork_column.addWidget(artwork_frame)
+        artwork_column.addWidget(self.artwork_frame, 0, Qt.AlignmentFlag.AlignHCenter)
         art_caption = QLabel("ALBUM ARTWORK")
         art_caption.setProperty("role", "muted")
         art_caption.setAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -157,23 +151,6 @@ class NowPlayingPage(ScrollPage):
         transport.addWidget(self.next)
         details.addLayout(transport)
 
-        progress = QHBoxLayout()
-        progress.setSpacing(10)
-        self.current_time = QLabel("0:00")
-        self.current_time.setProperty("role", "muted")
-        self.current_time.setMinimumWidth(42)
-        self.current_time.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        self.seek = QSlider(Qt.Orientation.Horizontal)
-        self.seek.setRange(0, 1000)
-        self.seek.setEnabled(False)
-        self.total_time = QLabel("0:00")
-        self.total_time.setProperty("role", "muted")
-        self.total_time.setMinimumWidth(42)
-        progress.addWidget(self.current_time)
-        progress.addWidget(self.seek, 1)
-        progress.addWidget(self.total_time)
-        details.addLayout(progress)
-
         actions = QHBoxLayout()
         actions.setSpacing(8)
         self.favorite = IconButton("heart", "Add to favorites", checkable=True)
@@ -195,8 +172,6 @@ class NowPlayingPage(ScrollPage):
         self.previous.clicked.connect(lambda: self.transportRequested.emit("previous"))
         self.play_button.clicked.connect(lambda: self.transportRequested.emit("toggle_play_pause"))
         self.next.clicked.connect(lambda: self.transportRequested.emit("next"))
-        self.seek.sliderPressed.connect(self._seek_started)
-        self.seek.sliderReleased.connect(self._seek_released)
         self.favorite.clicked.connect(lambda: self.favoriteRequested.emit(self.track) if self.track else None)
         self.add_playlist.clicked.connect(lambda: self.playlistRequested.emit(self.track) if self.track else None)
         self.more.clicked.connect(lambda: self.moreRequested.emit(self.track) if self.track else None)
@@ -207,7 +182,7 @@ class NowPlayingPage(ScrollPage):
 
     def _set_track_actions_enabled(self, enabled: bool) -> None:
         for widget in (
-            self.previous, self.play_button, self.next, self.seek,
+            self.previous, self.play_button, self.next,
             self.favorite, self.add_playlist, self.lyrics, self.more,
         ):
             widget.setEnabled(enabled)
@@ -225,9 +200,10 @@ class NowPlayingPage(ScrollPage):
         self.hero_layout.setStretch(1, 6 if wide else 0)
         self.hero_layout.setContentsMargins(28 if wide else 20, 24, 28 if wide else 20, 24)
         self.artwork_panel.setMaximumWidth(440 if wide else 16777215)
-        size = min(360, max(188, int(viewport_width * 0.34))) if wide else min(340, max(188, int(viewport_width * 0.5)))
+        size = min(340, max(188, int(viewport_width * 0.34))) if wide else min(340, max(188, int(viewport_width * 0.5)))
         self.cover.set_artwork_size(size)
-        self.cover_row.setFixedHeight(size)
+        self.cover_row.set_artwork_height(size)
+        self.artwork_frame.setFixedSize(size + 20, size + 20)
         self.artwork_panel.setSizePolicy(
             QSizePolicy.Policy.Preferred if wide else QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Preferred,
@@ -293,16 +269,10 @@ class NowPlayingPage(ScrollPage):
         self.play_button.setAccessibleName(self.play_button.toolTip())
 
     def set_position(self, seconds: float, duration: float | None = None) -> None:
+        """Keep the timing snapshot without duplicating the persistent playback bar."""
         if duration is not None:
             self.duration = max(0.0, float(duration or 0))
         self.position = max(0.0, float(seconds or 0))
-        self.current_time.setText(_clock(self.position))
-        self.total_time.setText(_clock(self.duration))
-        self.seek.setEnabled(bool(self.track) and self.duration > 0)
-        if not self._dragging and self.duration > 0:
-            blocker = QSignalBlocker(self.seek)
-            self.seek.setValue(round(min(self.position, self.duration) / self.duration * 1000))
-            del blocker
 
     def set_favorite(self, favorite: bool) -> None:
         active = bool(favorite)
@@ -319,11 +289,3 @@ class NowPlayingPage(ScrollPage):
         self.set_playback_state(self.playing)
         self.set_favorite(self.favorite.isChecked())
 
-    def _seek_started(self) -> None:
-        self._dragging = True
-
-    def _seek_released(self) -> None:
-        if self.duration > 0:
-            position = self.seek.value() / 1000 * self.duration
-            self.seekRequested.emit(position)
-        self._dragging = False
