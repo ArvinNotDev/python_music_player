@@ -14,7 +14,8 @@ RW Player is a local desktop music player for organizing and playing a personal 
 - Build a queue, add tracks to Play Next, remove or reorder upcoming tracks, and cycle shuffle plus repeat off/all/one with a dedicated Repeat One icon.
 - Create, rename, delete, reorder, and persist playlists. Favorites is a built-in collection.
 - Read and edit supported audio tags, replace or remove embedded artwork, and display artwork from embedded tags or nearby cover files.
-- Read plain-text or timestamped LRC lyrics, follow timed lines during playback, and save lyrics as a sidecar file or embedded tag when the format supports it.
+- Read local plain-text or timestamped LRC lyrics, follow timed lines during playback, and save lyrics as a sidecar file or embedded tag when the format supports it.
+- Retrieve missing lyrics on demand from LRCLIB, with a lyrics.ovh plain-text fallback when LRCLIB definitively has no suitable match; synchronized and plain versions are both supported.
 - Persist appearance, library, playback, and lyrics preferences.
 - Launch a keyboard-first command palette with `Ctrl+K` for navigation and common playback/library actions.
 - Set a one-shot sleep timer to pause playback automatically, with quick 15/30/45/60/90-minute presets.
@@ -72,7 +73,11 @@ Playlist membership and order are stored in SQLite. Favorites uses the built-in 
 
 Open a track's context menu or track details to edit supported tags. Metadata is written to the audio file and the catalog is refreshed. Artwork can be embedded, removed, or read from supported nearby cover filenames. The display cache is bounded and is invalidated after artwork changes.
 
-The lyrics page reads plain text and LRC timestamps. Timed lines follow playback position; manual scrolling pauses automatic following briefly. Use **Edit lyrics** to select plain text or LRC and a sidecar or embedded destination. Unsupported embedded writes show an error and leave the editor open.
+The lyrics page checks sidecar files and embedded lyrics first. When local lyrics are unavailable, it can search LRCLIB automatically and use lyrics.ovh as a plain-text fallback after a definitive LRCLIB miss. LRCLIB synchronized LRC is preferred for playback-following; plain text remains available when both formats are returned. Multiple plausible recordings are presented for user selection rather than silently choosing the first result. A bounded in-memory cache avoids repeat lookups for the same metadata.
+
+The **Settings → Lyrics → Automatically search online when local lyrics are unavailable** preference is enabled by default. Disabling it keeps local sidecar and embedded lyrics available while preventing automatic network lookups; the Lyrics page still offers an explicit refresh/search action. An internet connection is required for online results, and availability or coverage is not guaranteed. LRCLIB receives only the track title, artist, optional album, and duration; the lyrics.ovh fallback receives only the artist and title. RW Player never uploads audio files, local paths, library contents, or unrelated metadata. Online lyrics are attributed to their provider in the page. Provider access does not grant RW Player redistribution rights to copyrighted lyrics; users remain responsible for respecting provider terms and applicable copyright law. Downloaded results are kept in memory only and are not written into audio files or sidecars automatically.
+
+Use **Edit lyrics** to select plain text or LRC and a sidecar or embedded destination. Unsupported embedded writes show an error and leave the editor open.
 
 ## Quick actions and sleep timer
 
@@ -84,7 +89,7 @@ Artwork transitions, collection-card hover elevation, page changes, and side-dra
 
 ## Settings and user data
 
-Settings currently cover theme, accent, density, animations, library folders and auto-scan, default volume, shuffle and repeat, and lyrics display/storage preferences. System tray, playback notifications, media keys, speed, crossfade, data export, reset, and artwork-cache cleanup are not available in this build; unsupported controls are disabled or omitted.
+Settings currently cover theme, accent, density, animations, library folders and auto-scan, default volume, shuffle and repeat, lyrics display/storage preferences, and the automatic online-lyrics preference. System tray, playback notifications, media keys, speed, crossfade, data export, reset, and artwork-cache cleanup are not available in this build; unsupported controls are disabled or omitted.
 
 On Windows, the default application-data directory is:
 
