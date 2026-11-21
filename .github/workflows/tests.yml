@@ -25,6 +25,12 @@ jobs:
         run: python -m PyInstaller --clean --noconfirm packaging\\rw_player.spec
       - name: Verify RW Player executable
         run: |
-          if (-not (Test-Path "dist\\RW Player\\RW Player.exe")) {
-            throw "RW Player executable was not created."
+          $executable = Get-ChildItem -Path "dist" -Filter "RW Player.exe" -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($null -eq $executable) {
+            Write-Host "PyInstaller output tree:"
+            if (Test-Path "dist") {
+              Get-ChildItem -Path "dist" -Recurse | Format-Table FullName, Length
+            }
+            throw "RW Player executable was not found under dist."
           }
+          Write-Host "Verified RW Player executable: $($executable.FullName)"
