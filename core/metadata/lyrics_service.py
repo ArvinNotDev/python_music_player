@@ -255,7 +255,15 @@ class LyricsService:
         track = self.tracks.get(track_id)
         if track is None:
             raise KeyError(f"Track {track_id} does not exist")
-        local_document, local_source = self._get_local_lyrics(track_id)
+        local_read_error = ""
+        try:
+            local_document, local_source = self._get_local_lyrics(track_id)
+        except LyricsError as exc:
+            # A broken or unsupported embedded tag must not prevent an online
+            # lookup from using the track metadata already stored in the library.
+            local_document, local_source = LyricsDocument(), ""
+            local_read_error = str(exc)
+            logger.info("Local lyrics could not be read for track %s: %s", track_id, exc)
         if local_document.text.strip():
             plain_document = local_document if local_document.format == "plain" else _as_document(local_document.to_plain_text(), "plain")
             synced_document = local_document if local_document.format == "lrc" and any(
@@ -272,9 +280,13 @@ class LyricsService:
             )
         if not online_enabled:
             return LyricsLookupResult(
-                status="online_disabled",
+                status="error" if local_read_error else "online_disabled",
                 source="",
-                message="No local lyrics are available. Online lyrics search is disabled in Settings.",
+                message=(
+                    f"Local lyrics could not be read: {local_read_error}"
+                    if local_read_error else
+                    "No local lyrics are available. Online lyrics search is disabled in Settings."
+                ),
             )
 
         key = self._cache_key(track)
