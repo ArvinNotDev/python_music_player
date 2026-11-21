@@ -934,6 +934,10 @@ class MainWindow(QMainWindow):
         if not force and self._lyrics_loaded_track_key == key:
             return
         if key in self._lyrics_pending:
+            self.lyrics_page.set_loading(
+                track,
+                "LRCLIB" if force or bool(self._get_setting("lyrics.auto_online", True)) else "local",
+            )
             return
 
         loader = getattr(self.lyrics_service, "load_lyrics", None) if self.lyrics_service else None

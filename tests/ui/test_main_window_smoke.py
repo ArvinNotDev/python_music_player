@@ -381,6 +381,33 @@ class MainWindowSmokeTest(unittest.TestCase):
         self.assertEqual(self.window.lyrics_page.track["id"], "t2")
         self.assertEqual(self.window.lyrics_page.document.text, "Lyrics for Quiet Current")
 
+
+    def test_returning_to_pending_track_keeps_its_header_and_avoids_duplicate(self):
+        class DelayedLyrics:
+            def __init__(self):
+                self.calls = 0
+
+            def get_lyrics(self, track):
+                self.calls += 1
+                time.sleep(0.12 if track["id"] == "t1" else 0.05)
+                return f"[00:01.00]Lyrics for {track['title']}"
+
+        service = DelayedLyrics()
+        self.window.lyrics_service = service
+        self.window.playback_controller.play_track(TRACKS[0])
+        self.window.navigate("lyrics")
+        self.window.playback_controller.play_track(TRACKS[1])
+        self.window.playback_controller.play_track(TRACKS[0])
+
+        self.assertEqual(self.window.lyrics_page.track["id"], "t1")
+        self.assertEqual(len(self.window._lyrics_pending), 2)
+        self.assertTrue(QThreadPool.globalInstance().waitForDone(3_000))
+        self.app.processEvents()
+
+        self.assertEqual(service.calls, 2)
+        self.assertEqual(self.window.lyrics_page.track["id"], "t1")
+        self.assertEqual(self.window.lyrics_page.document.text, "Lyrics for Amber Roads")
+
     def test_dialogs_can_be_constructed_offscreen(self):
         playlist_dialog = PlaylistSelectDialog([{"id": "p1", "name": "Mix"}])
         picker = TrackPickerDialog(TRACKS, Metadata())
