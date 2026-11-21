@@ -213,7 +213,9 @@ class NowPlayingPage(ScrollPage):
             widget.setEnabled(enabled)
 
     def _adapt_layout(self) -> None:
-        viewport_width = self.scroll.viewport().width()
+        # The page width is stable during show/resize; the viewport can still
+        # report its pre-layout geometry on the first visible frame.
+        viewport_width = self.width()
         wide = viewport_width >= 920
         self.hero_layout.setDirection(
             QBoxLayout.Direction.LeftToRight if wide else QBoxLayout.Direction.TopToBottom
