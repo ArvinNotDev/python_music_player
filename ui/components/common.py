@@ -181,6 +181,17 @@ class ArtworkLabel(QLabel):
     def set_animations_enabled_for_all(cls, enabled: bool) -> None:
         cls._animations_enabled = bool(enabled)
 
+    def set_artwork_size(self, size: int) -> None:
+        """Resize the square presentation while reusing the cached source image."""
+        target = max(32, int(size))
+        if target == self._target_size:
+            return
+        self._target_size = target
+        self.setFixedSize(target, target)
+        cached = _ART_CACHE.get(self._key)
+        if cached is not None:
+            self._apply(cached)
+
     def _stop_fade(self) -> None:
         animation = self._fade_animation
         self._fade_animation = None
