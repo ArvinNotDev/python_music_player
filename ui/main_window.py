@@ -487,7 +487,6 @@ class MainWindow(QMainWindow):
         self.sidebar.set_active(destination if destination in ("home", "now_playing", "songs", "albums", "artists", "recently_played", "playlists", "favorites", "settings") else "")
         if destination == "search" and self.global_search.input.text().strip():
             self.search_page.search(self.global_search.input.text())
-        self._apply_theme()
 
     def _home_navigate(self, section: str):
         self.navigate({"recent": "recently_played", "added": "songs", "favorites": "favorites"}.get(section, "home"))
