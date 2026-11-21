@@ -85,6 +85,20 @@ def stylesheet(theme: str = "dark", density: str = "comfortable", accent: str | 
         QFrame#NowPlayingArtworkFrame {{
             background: {p.elevated}; border: 1px solid {p.border}; border-radius: 16px;
         }}
+        QFrame#HomeHero {{
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                stop:0 {p.surface}, stop:1 {p.elevated});
+            border: 1px solid {p.border}; border-radius: 18px;
+        }}
+        QLabel#HomeHeroTitle {{ font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }}
+        QFrame#HomeTrackCard {{
+            background: transparent; border: 1px solid transparent; border-radius: 14px;
+        }}
+        QFrame#HomeTrackCard:hover {{ background: {p.elevated}; border-color: {p.border}; }}
+        QLabel#QueueEmptyState {{
+            background: {p.surface}; border: 1px dashed {p.border}; border-radius: 12px;
+            padding: 24px; color: {p.muted};
+        }}
         QLabel[role="muted"] {{ color: {p.muted}; }}
         QLabel[role="secondary"] {{ color: {p.secondary}; }}
         QLabel[role="eyebrow"] {{

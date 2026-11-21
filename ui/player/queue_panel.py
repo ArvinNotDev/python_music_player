@@ -109,7 +109,14 @@ class QueuePanel(QWidget):
         layout.addLayout(top)
         self.current_label = QLabel("Nothing playing")
         self.current_label.setProperty("role", "secondary")
+        self.current_label.setMinimumWidth(0)
         layout.addWidget(self.current_label)
+        self.empty_state = QLabel("Your queue is empty\\n\\nAdd tracks from your library to build the listening order.")
+        self.empty_state.setObjectName("QueueEmptyState")
+        self.empty_state.setProperty("role", "muted")
+        self.empty_state.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_state.setWordWrap(True)
+        layout.addWidget(self.empty_state, 1)
         self.model = QueueModel(self)
         self.table = QTableView()
         self.table.setModel(self.model)
@@ -132,6 +139,7 @@ class QueuePanel(QWidget):
         self.table.setColumnWidth(3, 100)
         self.table.setColumnWidth(4, 60)
         self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setVisible(False)
         layout.addWidget(self.table, 1)
         actions = QHBoxLayout()
         actions.setSpacing(8)
@@ -152,11 +160,46 @@ class QueuePanel(QWidget):
         self.up.clicked.connect(lambda: self._move(-1))
         self.down.clicked.connect(lambda: self._move(1))
         self.table.doubleClicked.connect(lambda index: self.playRequested.emit(index.row()))
+        self.table.selectionModel().selectionChanged.connect(lambda *_: self._update_actions())
+        self._current_label_text = "Nothing playing"
+        self._update_actions()
 
     def set_queue(self, tracks: list[Any], current_index: int = -1, current_track: Any = None) -> None:
+        tracks = list(tracks or [])
         self.model.set_queue(tracks, current_index)
-        name = track_title(current_track) if current_track else (track_title(tracks[current_index]) if 0 <= current_index < len(tracks) else "Nothing playing")
-        self.current_label.setText(f"Now playing  ·  {name}" if name != "Nothing playing" else name)
+        name = (
+            track_title(current_track) if current_track
+            else track_title(tracks[current_index]) if 0 <= current_index < len(tracks)
+            else "Nothing playing"
+        )
+        self._current_label_text = f"Now playing  ·  {name}" if name != "Nothing playing" else name
+        self.current_label.setToolTip(self._current_label_text)
+        self._update_current_label()
+        has_tracks = bool(tracks)
+        self.empty_state.setVisible(not has_tracks)
+        self.table.setVisible(has_tracks)
+        self.clear_button.setEnabled(has_tracks)
+        self._update_actions()
+
+    def _update_current_label(self) -> None:
+        width = max(0, self.current_label.contentsRect().width())
+        if width:
+            self.current_label.setText(
+                self.current_label.fontMetrics().elidedText(
+                    self._current_label_text, Qt.TextElideMode.ElideRight, width
+                )
+            )
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._update_current_label()
+
+    def _update_actions(self) -> None:
+        row = self._selected_row()
+        count = self.model.rowCount()
+        self.remove.setEnabled(row >= 0)
+        self.up.setEnabled(row > 0)
+        self.down.setEnabled(0 <= row < count - 1)
 
     def _selected_row(self) -> int:
         rows = self.table.selectionModel().selectedRows()

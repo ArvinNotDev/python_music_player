@@ -18,6 +18,7 @@ from ui.components.visualizer import PlaybackVisualizer
 from ui.dialogs.sleep_timer import SleepTimerDialog
 from ui.pages.now_playing import NowPlayingPage
 from ui.player.playback_bar import PlaybackBar
+from ui.player.queue_panel import QueuePanel
 
 
 @pytest.fixture(scope="module")
@@ -177,6 +178,41 @@ def test_sleep_timer_dialog_has_safe_duration_bounds(qapp):
     dialog.minutes_input.setValue(90)
     assert dialog.duration_minutes == 90
     dialog.close()
+
+
+def test_queue_panel_empty_state_and_selection_actions(qapp):
+    panel = QueuePanel()
+    panel.resize(420, 600)
+    panel.show()
+    panel.set_queue([], -1)
+    qapp.processEvents()
+
+    assert not panel.empty_state.isHidden()
+    assert panel.table.isHidden()
+    assert not panel.clear_button.isEnabled()
+    assert not panel.remove.isEnabled()
+
+    tracks = [
+        {"id": "queue-1", "title": "First queue item", "artist": "Artist", "duration": 120},
+        {"id": "queue-2", "title": "Second queue item", "artist": "Artist", "duration": 140},
+    ]
+    panel.set_queue(tracks, 0, tracks[0])
+    qapp.processEvents()
+    assert panel.empty_state.isHidden()
+    assert not panel.table.isHidden()
+    assert panel.clear_button.isEnabled()
+
+    panel.table.selectRow(1)
+    qapp.processEvents()
+    assert panel.remove.isEnabled()
+    assert panel.up.isEnabled()
+    assert not panel.down.isEnabled()
+
+    panel.set_queue([], -1)
+    qapp.processEvents()
+    assert not panel.empty_state.isHidden()
+    assert panel.table.isHidden()
+    panel.close()
 
 
 def test_playback_visualizer_respects_motion_setting(qapp):
