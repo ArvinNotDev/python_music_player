@@ -90,6 +90,18 @@ class LyricsUiAdapter:
             return document
         return str(getattr(document, "text", "") or "")
 
+    def load_lyrics(self, track: Any, *, online_enabled: bool = True, force: bool = False):
+        """Load local lyrics first, optionally falling back to online providers."""
+        return self._service.load_lyrics(
+            _identifier(track),
+            online_enabled=online_enabled,
+            force=force,
+        )
+
+    def select_lyrics_candidate(self, track: Any, candidate):
+        """Accept an explicitly selected online recording."""
+        return self._service.select_candidate(_identifier(track), candidate)
+
     def save_lyrics(
         self,
         track: Any,
