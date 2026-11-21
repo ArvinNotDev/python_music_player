@@ -122,8 +122,9 @@ class SettingsPage(ScrollPage):
         self.content.addWidget(self.large_lyrics)
         self.online_lyrics = QCheckBox("Automatically search online when local lyrics are unavailable")
         self.online_lyrics.setToolTip(
-            "When enabled, the track title, artist, album, and duration are sent to LRCLIB "
-            "and, when appropriate, lyrics.ovh. Audio files and local paths are never uploaded."
+            "When enabled, the title, artist, optional album, and duration are sent to LRCLIB. "
+            "If LRCLIB has no suitable match, only the artist and title are sent to lyrics.ovh. "
+            "Audio files and local paths are never uploaded."
         )
         self.content.addWidget(self.online_lyrics)
 
