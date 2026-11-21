@@ -71,7 +71,7 @@ class NowPlayingPage(ScrollPage):
         artwork_column.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
         self.artwork_frame = QFrame()
         self.artwork_frame.setObjectName("NowPlayingArtworkFrame")
-        self.artwork_frame.setFixedSize(360, 360)
+        self.artwork_frame.setFixedSize(362, 362)
         artwork_layout = QVBoxLayout(self.artwork_frame)
         artwork_layout.setContentsMargins(10, 10, 10, 10)
         self.cover = ArtworkLabel(340)
@@ -203,7 +203,8 @@ class NowPlayingPage(ScrollPage):
         size = min(340, max(188, int(viewport_width * 0.34))) if wide else min(340, max(188, int(viewport_width * 0.5)))
         self.cover.set_artwork_size(size)
         self.cover_row.set_artwork_height(size)
-        self.artwork_frame.setFixedSize(size + 20, size + 20)
+        # Account for the one-pixel frame border on each side plus 10 px padding.
+        self.artwork_frame.setFixedSize(size + 22, size + 22)
         self.artwork_panel.setSizePolicy(
             QSizePolicy.Policy.Preferred if wide else QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Preferred,
