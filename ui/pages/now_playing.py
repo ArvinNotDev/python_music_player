@@ -127,6 +127,7 @@ class NowPlayingPage(ScrollPage):
 
         self.info = QFrame()
         self.info.setObjectName("Surface")
+        self.info.setMaximumWidth(760)
         info_layout = QVBoxLayout(self.info)
         info_layout.setContentsMargins(14, 12, 14, 12)
         info_layout.setSpacing(5)
@@ -222,7 +223,7 @@ class NowPlayingPage(ScrollPage):
         self.hero_layout.setStretch(1, 6 if wide else 0)
         self.hero_layout.setContentsMargins(28 if wide else 20, 24, 28 if wide else 20, 24)
         self.artwork_panel.setMaximumWidth(440 if wide else 16777215)
-        size = min(360, max(188, int(viewport_width * (0.34 if wide else 0.58))))
+        size = min(360, max(188, int(viewport_width * 0.34))) if wide else min(340, max(188, int(viewport_width * 0.5)))
         self.cover.set_artwork_size(size)
         self.cover_row.setFixedHeight(size)
         self.artwork_panel.setSizePolicy(
