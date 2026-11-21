@@ -26,6 +26,7 @@ from .pages import (
 from .player.playback_bar import PlaybackBar
 from .player.queue_panel import QueuePanel
 from .services import track_id, value
+from core.metadata.lyrics_service import LyricsLookupResult
 from .theme import PALETTES, resolve_theme, stylesheet
 from app.resources import resource_path
 
@@ -163,6 +164,9 @@ class MainWindow(QMainWindow):
         self._last_query = ""
         self._art_accent = "#8B7CFF"
         self._thread_pool = QThreadPool.globalInstance()
+        self._lyrics_request_generation = 0
+        self._lyrics_pending: dict[str, int] = {}
+        self._lyrics_loaded_track_key: str | None = None
         self._search_timer = QTimer(self)
         self._search_timer.setSingleShot(True)
         self._search_timer.setInterval(180)
@@ -257,7 +261,10 @@ class MainWindow(QMainWindow):
         self.playlists_page = PlaylistsPage(self.metadata_service)
         self.playlists_page.set_reorder_supported(callable(getattr(self.playlist_service, "move_track", None)))
         self.now_playing_page = NowPlayingPage(self.metadata_service)
-        self.lyrics_page = LyricsPage(bool(self._get_setting("lyrics.auto_scroll", True)))
+        self.lyrics_page = LyricsPage(
+            bool(self._get_setting("lyrics.auto_scroll", True)),
+            self.metadata_service,
+        )
         self.settings_page = SettingsPage(self.settings_service, self.library_service, self.playback_controller)
         self.detail_page = CollectionDetailPage(self.metadata_service)
         self.search_page = SearchPage(self.metadata_service)
@@ -327,6 +334,8 @@ class MainWindow(QMainWindow):
         self.now_playing_page.transportRequested.connect(self._now_playing_transport)
         self.lyrics_page.editRequested.connect(self._edit_lyrics)
         self.lyrics_page.autoScrollChanged.connect(lambda enabled: self._set_setting("lyrics.auto_scroll", enabled))
+        self.lyrics_page.retryRequested.connect(self._retry_lyrics)
+        self.lyrics_page.candidateSelected.connect(self._select_lyrics_candidate)
         self.settings_page.themeChanged.connect(lambda _theme: self._apply_theme())
         self.settings_page.appearanceChanged.connect(self._apply_theme)
         self.settings_page.lyricsDisplayChanged.connect(self.lyrics_page.set_large_text)
@@ -406,6 +415,7 @@ class MainWindow(QMainWindow):
         palette = PALETTES[resolved]
         self.lyrics_page.set_theme_colors(palette.secondary, palette.muted, accent)
         animations_enabled = bool(self._get_setting("appearance.animations", True))
+        self.lyrics_page.set_animations_enabled(animations_enabled)
         self.page_stack.set_animations_enabled(animations_enabled)
         self._cursor_spotlight.set_animations_enabled(animations_enabled)
         self._cursor_spotlight.apply_theme(resolved, accent)
@@ -597,6 +607,7 @@ class MainWindow(QMainWindow):
         changed = force or track_id(track) != track_id(self._current_track)
         self._current_track = track
         if changed:
+            self._lyrics_loaded_track_key = None
             self.playback_bar.set_track(track)
             self.now_playing_page.set_track(track, force=force)
             self.now_playing_page.set_position(self.playback_bar.position, self.playback_bar.duration)
@@ -876,27 +887,107 @@ class MainWindow(QMainWindow):
                 else:
                     self._refresh_current_track(refreshed or track)
 
-    def _load_lyrics(self, track):
-        self.lyrics_page.set_track_lyrics(track, None)
+    def _load_lyrics(self, track, *, force: bool = False):
         if not track:
+            self._lyrics_loaded_track_key = None
+            self.lyrics_page._set_track_header(None)
+            self.lyrics_page.set_empty_state(
+                "No track selected",
+                "Start playing a song to view or retrieve its lyrics.",
+            )
             return
-        method = getattr(self.lyrics_service, "get_lyrics", None) if self.lyrics_service else None
+
+        key = str(track_id(track))
+        if not force and self._lyrics_loaded_track_key == key:
+            return
+        if key in self._lyrics_pending:
+            return
+
+        loader = getattr(self.lyrics_service, "load_lyrics", None) if self.lyrics_service else None
+        online_enabled = force or bool(self._get_setting("lyrics.auto_online", True))
+        if callable(loader):
+            method = loader
+            args = (track,)
+            kwargs = {"online_enabled": online_enabled, "force": force}
+        else:
+            method = getattr(self.lyrics_service, "get_lyrics", None) if self.lyrics_service else None
+            args, kwargs = (track,), {}
         if not callable(method):
+            self.lyrics_page.set_empty_state(
+                "Lyrics service unavailable",
+                "RW Player couldn't access the local lyrics service.",
+            )
             self._status("Lyrics are unavailable from the lyrics service.")
             return
-        identifier = track
-        self.lyrics_page.title.setText("Lyrics · Loading…")
-        task = _BackgroundCall(method, (identifier,))
-        task.signals.done.connect(lambda result, error, selected=track: self._lyrics_loaded(selected, result, error))
+
+        self._lyrics_request_generation += 1
+        request_token = self._lyrics_request_generation
+        self._lyrics_pending[key] = request_token
+        self.lyrics_page.set_loading(track, "LRCLIB" if online_enabled else "local")
+        task = _BackgroundCall(method, args, kwargs)
+        task.signals.done.connect(
+            lambda result, error, selected=track, selected_key=key, token=request_token:
+                self._lyrics_loaded(selected, selected_key, token, result, error)
+        )
         self._thread_pool.start(task)
 
-    def _lyrics_loaded(self, track, lyrics, error):
-        if track_id(track) != track_id(self._current_track):
+    def _lyrics_loaded(self, track, key, request_token, lyrics, error):
+        is_current_request = self._lyrics_pending.get(key) == request_token
+        if is_current_request:
+            self._lyrics_pending.pop(key, None)
+        # Track identity plus the per-request generation prevents stale worker results
+        # from replacing the lyrics of a different currently playing song.
+        if not is_current_request or key != str(track_id(self._current_track)):
             return
-        self.lyrics_page.title.setText("Lyrics")
-        self.lyrics_page.set_track_lyrics(track, lyrics if not error else None)
         if error:
-            self._status(f"Couldn't load lyrics: {error}")
+            result = LyricsLookupResult(status="error", message=str(error))
+        elif isinstance(lyrics, LyricsLookupResult):
+            result = lyrics
+        else:
+            self.lyrics_page.set_track_lyrics(track, lyrics)
+            self.lyrics_page.source_label.setText("Source · Local")
+            self.lyrics_page.sync_label.setText(
+                "Time-synchronized" if self.lyrics_page.document and self.lyrics_page.document.format == "lrc"
+                else "Plain lyrics"
+            )
+            self.lyrics_page.state_card.hide()
+            self.lyrics_page.set_position(float(value(
+                self.playback_controller, "position", "position_seconds",
+                default=self.playback_bar.position,
+            ) or 0))
+            self._lyrics_loaded_track_key = key
+            return
+
+        self.lyrics_page.set_lookup_result(track, result)
+        self.lyrics_page.set_position(float(value(
+            self.playback_controller, "position", "position_seconds",
+            default=self.playback_bar.position,
+        ) or 0))
+        self._lyrics_loaded_track_key = key
+
+    def _retry_lyrics(self):
+        self._load_lyrics(self._current_track, force=True)
+
+    def _select_lyrics_candidate(self, candidate):
+        track = self._current_track
+        method = getattr(self.lyrics_service, "select_lyrics_candidate", None) if self.lyrics_service else None
+        if not track or not callable(method):
+            self._status("Selecting an online lyrics version is unavailable.")
+            return
+        try:
+            result = method(track, candidate)
+        except Exception as exc:
+            self.lyrics_page.set_lookup_result(
+                track,
+                LyricsLookupResult(status="error", message=str(exc)),
+            )
+            return
+        self.lyrics_page.set_lookup_result(track, result)
+        self.lyrics_page.set_position(float(value(
+            self.playback_controller, "position", "position_seconds",
+            default=self.playback_bar.position,
+        ) or 0))
+        self._lyrics_loaded_track_key = str(track_id(track))
 
     def _edit_lyrics(self, track, lyrics):
         if not callable(getattr(self.lyrics_service, "save_lyrics", None)):
@@ -904,6 +995,7 @@ class MainWindow(QMainWindow):
             return
         dialog = LyricsEditorDialog(track, self.lyrics_service, lyrics, self)
         if dialog.exec():
+            self._lyrics_loaded_track_key = None
             self._load_lyrics(track)
 
     def _show_track_menu(self, track):

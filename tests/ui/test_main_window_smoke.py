@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import os
+import time
+import threading
 import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QObject, QEventLoop, QPoint, QTimer, Signal
+from PySide6.QtCore import QObject, QEventLoop, QPoint, QThreadPool, QTimer, Signal
 from PySide6.QtWidgets import QApplication
 
 from ui.dialogs import LyricsEditorDialog, MetadataEditorDialog, PlaylistSelectDialog, TrackPickerDialog
@@ -330,6 +332,54 @@ class MainWindowSmokeTest(unittest.TestCase):
         self.window._toggle_queue()
         self.assertTrue(self.window.queue_panel.isHidden())
         self.assertEqual(self.window.queue_panel.maximumWidth(), 0)
+
+
+    def test_playback_bar_and_now_playing_share_one_inflight_lyrics_request(self):
+        class SlowLyrics:
+            def __init__(self):
+                self.calls = 0
+                self.started = threading.Event()
+                self.release = threading.Event()
+
+            def get_lyrics(self, track):
+                self.calls += 1
+                self.started.set()
+                self.release.wait(2)
+                return f"[00:01.00]{track['title']}"
+
+        service = SlowLyrics()
+        self.window.lyrics_service = service
+        self.window.playback_controller.play_track(TRACKS[0])
+        self.window.playback_bar.lyricsRequested.emit()
+        self.assertTrue(service.started.wait(1))
+        self.window.now_playing_page.lyricsRequested.emit()
+        self.assertEqual(len(self.window._lyrics_pending), 1)
+
+        service.release.set()
+        self.assertTrue(QThreadPool.globalInstance().waitForDone(3_000))
+        self.app.processEvents()
+
+        self.assertEqual(service.calls, 1)
+        self.assertEqual(self.window.lyrics_page.track["id"], "t1")
+        self.assertIn("Amber Roads", self.window.lyrics_page.document.text)
+
+    def test_stale_lyrics_response_cannot_replace_new_track(self):
+        class DelayedLyrics:
+            def get_lyrics(self, track):
+                if track["id"] == "t1":
+                    time.sleep(0.18)
+                return f"[00:01.00]Lyrics for {track['title']}"
+
+        self.window.lyrics_service = DelayedLyrics()
+        self.window.playback_controller.play_track(TRACKS[0])
+        self.window.navigate("lyrics")
+        self.window.playback_controller.play_track(TRACKS[1])
+
+        self.assertTrue(QThreadPool.globalInstance().waitForDone(3_000))
+        self.app.processEvents()
+
+        self.assertEqual(self.window.lyrics_page.track["id"], "t2")
+        self.assertEqual(self.window.lyrics_page.document.text, "Lyrics for Quiet Current")
 
     def test_dialogs_can_be_constructed_offscreen(self):
         playlist_dialog = PlaylistSelectDialog([{"id": "p1", "name": "Mix"}])

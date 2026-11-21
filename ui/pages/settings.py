@@ -120,6 +120,12 @@ class SettingsPage(ScrollPage):
         self.content.addWidget(self.lyrics_autoscroll)
         self.large_lyrics = QCheckBox("Use larger lyric text")
         self.content.addWidget(self.large_lyrics)
+        self.online_lyrics = QCheckBox("Automatically search online when local lyrics are unavailable")
+        self.online_lyrics.setToolTip(
+            "When enabled, the track title, artist, album, and duration are sent to LRCLIB "
+            "and, when appropriate, lyrics.ovh. Audio files and local paths are never uploaded."
+        )
+        self.content.addWidget(self.online_lyrics)
 
         self._section("Desktop")
         self.tray = QCheckBox("Show system tray icon")
@@ -164,6 +170,7 @@ class SettingsPage(ScrollPage):
         self.repeat_default.currentIndexChanged.connect(self._save_repeat)
         self.lyrics_autoscroll.toggled.connect(lambda value: self._set("lyrics.auto_scroll", value))
         self.large_lyrics.toggled.connect(lambda value: self._set("lyrics.large_text", value))
+        self.online_lyrics.toggled.connect(lambda value: self._set("lyrics.auto_online", value))
         self.large_lyrics.toggled.connect(self.lyricsDisplayChanged)
         self._wire_optional_storage()
 
@@ -203,6 +210,7 @@ class SettingsPage(ScrollPage):
             self.repeat_default.setCurrentIndex(0)
         self.lyrics_autoscroll.setChecked(bool(get("lyrics.auto_scroll", True)))
         self.large_lyrics.setChecked(bool(get("lyrics.large_text", False)))
+        self.online_lyrics.setChecked(bool(get("lyrics.auto_online", True)))
         self.tray.setChecked(bool(get("desktop.tray", True)))
         self.notifications.setChecked(bool(get("desktop.notifications", True)))
         self.media_keys.setChecked(bool(get("desktop.media_keys", True)))
