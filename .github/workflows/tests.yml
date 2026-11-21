@@ -19,6 +19,8 @@ jobs:
       - run: python -m pytest -q
         env:
           QT_QPA_PLATFORM: offscreen
+      - name: Compile application modules
+        run: python -m compileall -q app core database services ui tests
       - name: Build RW Player Windows package
         run: python -m PyInstaller --clean --noconfirm packaging\\rw_player.spec
       - name: Verify RW Player executable
