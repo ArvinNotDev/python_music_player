@@ -328,8 +328,9 @@ def test_cache_is_separated_by_track_identity_metadata(database, tmp_path):
     assert client.calls == 2
 
 
-def test_disabled_online_lookup_keeps_local_service_available(database, tmp_path):
+def test_disabled_online_lookup_keeps_local_service_available(monkeypatch, database, tmp_path):
     track, _path = _stored_track(database, tmp_path)
+    monkeypatch.setattr("core.metadata.lyrics_service.read_embedded_lyrics", lambda _path: None)
     client = _FakeOnlineClient(LyricsCandidate("LRCLIB", "Northern Lights", "Mira Vale", plain_lyrics="Online"))
     result = LyricsService(TrackRepository(database), online_client=client).load_lyrics(
         track.id, online_enabled=False
