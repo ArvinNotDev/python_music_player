@@ -285,7 +285,7 @@ class NowPlayingPage(ScrollPage):
         self.play_button.setChecked(self.playing)
         del blocker
         self.play_button.icon_name = "pause" if self.playing else "play"
-        self.play_button.setIcon(icon(self.play_button.icon_name, "#FFFFFF" if self.playing else self._text_color))
+        self.play_button.setIcon(icon(self.play_button.icon_name, "#FFFFFF"))
         self.play_button.setToolTip("Pause" if self.playing else "Play")
         self.play_button.setAccessibleName(self.play_button.toolTip())
 

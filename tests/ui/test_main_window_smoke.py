@@ -286,7 +286,7 @@ class MainWindowSmokeTest(unittest.TestCase):
         self.assertEqual(self.window._active_page, "search")
         self.window.settings_page.theme.setCurrentText("light")
         self.assertEqual(self.window.settings_service.get("appearance.theme"), "light")
-        self.assertIn("#F4F5F8", self.window.styleSheet())
+        self.assertIn("#1B2432", self.window.styleSheet())
 
     def test_queue_and_favorite_actions_use_services(self):
         self.window.playback_controller.play_queue(TRACKS, 0)

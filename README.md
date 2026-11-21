@@ -8,6 +8,8 @@ RW Player is a local desktop music player for organizing and playing a personal 
 
 - Scan and browse local music folders with song, album, artist, recently played, and recently added views.
 - Search songs, albums, artists, and playlists; browse album and artist collections.
+- Use an artwork-led, responsive Now Playing workspace with in-page transport, synchronized seeking, and available track metadata.
+- Switch between coordinated dark, light, and system themes; the persistent playback bar adapts to narrower windows and truncates long track metadata without losing tooltips.
 - Play, pause, resume, stop, seek, change volume, and mute through one playback controller.
 - Build a queue, add tracks to Play Next, remove or reorder upcoming tracks, and cycle shuffle plus repeat off/all/one with a dedicated Repeat One icon.
 - Create, rename, delete, reorder, and persist playlists. Favorites is a built-in collection.
